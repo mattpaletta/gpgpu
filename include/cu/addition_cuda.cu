@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <math.h>
+
 // Kernel function to add the elements of two arrays
 __global__ void add(const int n, const float *x, float *y) {
     int index = blockIdx.x * blockDim.x + threadIdx.x;

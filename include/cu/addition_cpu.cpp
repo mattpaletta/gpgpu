@@ -4,9 +4,6 @@
 
 // https://devblogs.nvidia.com/even-easier-introduction-cuda/
 
-#ifndef GPUGPU_ADDITION_CPU_H
-#define GPUGPU_ADDITION_CPU_H
-
 #include <iostream>
 #include <math.h>
 
@@ -45,5 +42,3 @@ int main() {
 
     return 0;
 }
-
-#endif //GPUGPU_ADDITION_CPU_H

@@ -10,12 +10,14 @@
 #include <CL/cl.hpp>
 #endif
 
-
+#include <cassert>
 #include <vector>
 #include <utility>
 #include <iostream>
 #include <fstream>
 #include <string>
+
+#include "resources.hpp"
 
 int main() {
     // Create the two input vectors
@@ -47,23 +49,29 @@ int main() {
         // Create a command queue and use the first device
         cl::CommandQueue queue = cl::CommandQueue(context, devices[0]);
 
-
-        std::cout << "Got devices" << std::endl;
+        std::cout << "Got devices: " << devices.size() << std::endl;
 
         cl::Program::Sources sources;
 
         // Read source file
-        std::ifstream sourceFile("vector_add_kernel.cl");
-        std::string sourceCode(
-                std::istreambuf_iterator<char>(sourceFile),
-                (std::istreambuf_iterator<char>()));
-        cl::Program::Sources source(1, std::make_pair(sourceCode.c_str(), sourceCode.length()+1));
+//        const std::string sourceFileLocation = "vector_add_kernel.cl";
+//        std::ifstream sourceFile(sourceFileLocation);
+//        std::string sourceCode(
+//                std::istreambuf_iterator<char>(sourceFile),
+//                (std::istreambuf_iterator<char>()));
+        const auto a = std::make_pair(vector_add_kernel_cl.c_str(), vector_add_kernel_cl.size()+1);
+        cl::Program::Sources source(1, a);
+//        cl::Program::Sources source(1, std::make_pair(vector_add_kernel_cl, (unsigned long long) vector_add_kernel_cl_size));
 
         // Make program of the source code in the context
         auto program = cl::Program(context, source);
 
         // Build program for these specific devices
-        program.build(devices);
+        const auto err_code = program.build(devices);
+        if (err_code != 0) {
+            std::cerr << "Failed to build kernel: " << std::endl;
+            std::terminate();
+        }
         std::cout << "Building kernel" << std::endl;
 
         // Make kernel
