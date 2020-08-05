@@ -4,28 +4,38 @@ project(gpugpu LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+include(cmake/fetch_extern.cmake)
+
+option(GPGPU_USE_CUDA "Enable CUDA support" OFF)
+option(GPGPU_USE_OPENCL "Enable OpenCL support" ON)
+option(GPGPU_USE_METAL "Enable Metal support" ON)
+
+if (${GPGPU_USE_OPENCL})
+	fetch_extern(avalanche https://github.com/mattpaletta/avalanche.git master)
+endif()
 add_executable(addition_cpu include/cu/addition_cpu.cpp)
 
-FIND_PACKAGE(CUDA)
-cuda_add_executable(addition_cuda include/cu/addition_cuda.cu)
+if (${GPGPU_USE_CUDA})
+	FIND_PACKAGE(CUDA REQUIRED)
+	cuda_add_executable(addition_cuda include/cu/addition_cuda.cu)
+endif()
 
-FIND_PACKAGE(OpenCL)
-# # This program compiles the opencl resources, and creates a 'resources.hpp' file.
-add_executable(addition_cl_res include/compile_cl.cpp include/cu/vector_add_kernel.cl)
-target_link_libraries(addition_cl_res OpenCL::OpenCL)
+if (${GPGPU_USE_OPENCL})
+	add_executable(addition_cl include/cu/addition_cl.cpp)
+	target_link_libraries(addition_cl avalanche)
+	set_target_properties(addition_cl PROPERTIES SKIP_BUILD_RPATH ON)
+endif()
 
-add_custom_target(create_resources
-                  COMMAND ./addition_cl_res
-                  DEPENDS addition_cl_res
-                  BYPRODUCTS ${CMAKE_BINARY_DIR}/resources.hpp)
-configure_file(include/cu/vector_add_kernel.cl ${CMAKE_BINARY_DIR}/vector_add_kernel.cl COPYONLY)
+if (${GPGPU_USE_METAL})
+	find_library(METAL_LIBRARY Metal)
+	find_library(METALKIT_LIBRARY MetalKit)
+	find_library(METALPERFORMANCE_LIBRARY MetalPerformanceShaders)
+	find_library(COCOA_LIBRARY Cocoa)
+	find_library(CORE_FOUNDATION_LIBARY Foundation)
 
-add_executable(addition_cl include/cu/addition_cl.cpp ${CMAKE_BINARY_DIR}/resources.hpp)
-target_include_directories(addition_cl PRIVATE ${CMAKE_BINARY_DIR})
-target_link_libraries(addition_cl OpenCL::OpenCL)
-<<<<<<< HEAD
-=======
-#configure_file(include/cu/vector_add_kernel.cl ${CMAKE_BINARY_DIR}/vector_add_kernel.cl COPYONLY)
+	add_executable(addition_metal include/cu/addition_metal.mm)
+	target_link_libraries(addition_metal ${METAL_LIBRARY} ${METALKIT_LIBRARY} ${METALPERFORMANCE_LIBRARY} ${COCOA_LIBRARY} ${CORE_FOUNDATION_LIBARY})
+endif()
 
 #if (BUILD_PYTHON)
 #    add_library(cuckoo src/CuckooGPU/cuckoo.hpp)
@@ -55,4 +65,3 @@ target_link_libraries(addition_cl OpenCL::OpenCL)
 #else()
 #    set(EXTRA_LIBS "")
 #endif()
->>>>>>> 084d6e60f26cd2db09e3b91d8e7d4e3be402d016
