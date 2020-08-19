@@ -1,8 +1,8 @@
-
 .idea/
 cmake-build-debug/
 build/
 build_make/
+.vs/*
 
 **/*.swp
 **/*.DS_Store
