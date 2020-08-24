@@ -60,9 +60,5 @@ namespace gpgpu {
 		static Builder GetBuilderFor(const Runtime& rt) {
 			return Builder(rt);
 		}
-
-		static std::string getKernel(const builder::Kernel& kern) {
-			return kern.build_opencl();
-		}
 	};
 }

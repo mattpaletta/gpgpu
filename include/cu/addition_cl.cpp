@@ -24,12 +24,13 @@
 #include <fstream>
 #include <string>
 
-#include <avalanche/terminal_nodes.h>
-#include <avalanche/nodes.h>
-#include <avalanche/Shape.h>
-#include <avalanche/Executor.h>
+// #include <avalanche/terminal_nodes.h>
+// #include <avalanche/nodes.h>
+//#include <avalanche/Shape.h>
+// #include <avalanche/Executor.h>
 
 int main() {
+	/*
     // Create the two input vectors
     constexpr int N = 1'000;
     constexpr int full_size = N * N;
@@ -72,4 +73,5 @@ int main() {
     std::chrono::duration<double> diff = end_time - start_time;
     std::cout << "Time elapsed" << diff.count() << " s\n";
     return 0;
+	*/
 }

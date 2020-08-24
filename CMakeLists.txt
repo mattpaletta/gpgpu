@@ -1,14 +1,18 @@
 cmake_minimum_required(VERSION 3.8)
-project(gpugpu LANGUAGES CXX)
+project(gpugpu LANGUAGES CXX OBJCXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(cmake/fetch_extern.cmake)
 
-if(APPLE)
+
+if (APPLE)
 	# OpenCL Implementation doesn't seem to work on apple, only build metal
 	option(GPGPU_USE_METAL "Enable Metal support" ON)
+	if (${GPGPU_USE_METAL})
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -x objective-c++")
+	endif()
 else()
 	option(GPGPU_USE_OPENCL "Enable OpenCL support" ON)
 	find_package(CUDA QUIET)
@@ -21,6 +25,9 @@ file(GLOB_RECURSE INC_FILES include/gpgpu/*.hpp)
 file(GLOB_RECURSE SRC_FILES src/*.cpp)
 
 add_executable(addition_cpu include/cu/addition_cpu.cpp)
+if (${GPGPU_USE_METAL})
+	set_target_properties(addition_cpu PROPERTIES LINKER_LANGUAGE OBJCXX)
+endif()
 
 add_library(gpgpu STATIC ${INC_FILES} ${SRC_FILES})
 target_include_directories(gpgpu PUBLIC include)
@@ -50,6 +57,10 @@ if (${GPGPU_USE_OPENCL})
 	target_compile_definitions(gpgpu PUBLIC "-DGPGPU_OPENCL")
 
 	add_executable(addition_cl include/cu/addition_cl.cpp)
+	if (${GPGPU_USE_METAL})
+		set_target_properties(addition_cl PROPERTIES LINKER_LANGUAGE OBJCXX)
+	endif()
+	message("Using OpenCL")
 endif()
 
 if (${GPGPU_USE_METAL})
@@ -58,6 +69,8 @@ if (${GPGPU_USE_METAL})
 	find_library(METALPERFORMANCE_LIBRARY MetalPerformanceShaders)
 	find_library(COCOA_LIBRARY Cocoa)
 	find_library(CORE_FOUNDATION_LIBARY Foundation)
+
+	message("Using Metal")
 
 	set(METAL_LIBS ${METAL_LIBRARY} ${METALKIT_LIBRARY} ${METALPERFORMANCE_LIBRARY} ${COCOA_LIBRARY} ${CORE_FOUNDATION_LIBARY})
 
@@ -68,7 +81,10 @@ if (${GPGPU_USE_METAL})
 	target_compile_definitions(gpgpu PUBLIC "-DGPGPU_METAL")
 endif()
 
-target_link_libraries(gpgpu ${GPGPU_DEPS})
+target_link_libraries(gpgpu PUBLIC ${GPGPU_DEPS})
+if (${GPGPU_USE_METAL})
+	set_target_properties(gpgpu PROPERTIES LINKER_LANGUAGE OBJCXX)
+endif()
 
 # Build tests
 set(CATCH_VERSION 0f12995501ee01d3d2bdd9f4978bb28b5f670bab)
@@ -77,6 +93,9 @@ if (NOT TARGET Catch2::Catch2)
 endif()
 add_executable(test_gpgpu test/test_gpgpu.cpp)
 target_link_libraries(test_gpgpu gpgpu Catch2::Catch2)
+if (${GPGPU_USE_METAL})
+	set_target_properties(test_gpgpu PROPERTIES LINKER_LANGUAGE OBJCXX)
+endif()
 
 #if (BUILD_PYTHON)
 #    add_library(cuckoo src/CuckooGPU/cuckoo.hpp)
