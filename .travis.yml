@@ -48,9 +48,7 @@ before_install:
       export CMAKE_MAJOR_VERSION=3.17;
       export CMAKE_MINOR_VERSION=2;
       wget -q https://cmake.org/files/v${CMAKE_MAJOR_VERSION}/cmake-${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}-Linux-x86_64.sh && mkdir /opt/cmake && sh ./cmake-${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}-Linux-x86_64.sh --prefix=/opt/cmake --skip-license && sudo ln -s /opt/cmake/bin/cmake /usr/local/bin/cmake && rm ./cmake-${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}-Linux-x86_64.sh && export PATH=/usr/local/bin:$PATH;
-
-      # Install Cuda
-      git clone --depth 1 https://github.com/tmcdonell/travis-scripts.git;
+      git clone --depth 1 https://github.com/tmcdonell/travis-scripts.git; # Install Cuda
       export CUDA=11.0.3;
       ./travis-scripts/install-cuda-trusty.sh;
     fi;
