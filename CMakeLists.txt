@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.8)
-project(gpugpu LANGUAGES CXX OBJCXX)
+if (APPLE)
+	project(gpugpu LANGUAGES CXX OBJCXX)
+else()
+	project(gpugpu LANGUAGES CXX)
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

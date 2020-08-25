@@ -25,11 +25,11 @@ namespace gpgpu::builder {
         std::string opencl_location_to_string() const {
             switch (this->location) {
                 case GLOBAL:
-                    return "__global";
+                    return "global";
                 case DEVICE:
-                    return "__device";
+                    return "device";
                 case HOST:
-                    return "__host";
+                    return "host";
             }
         }
 

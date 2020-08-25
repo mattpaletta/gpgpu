@@ -130,7 +130,7 @@ namespace gpgpu::builder {
 		}
 
 		virtual std::string build_opencl(const std::size_t& indentation = 0) const override {
-			const std::string header = this->getIndentation(indentation) + "__kernel " + this->returnType + " " + this->getName() + this->getArgsStr(OpenCL) + " {" + "\n";
+			const std::string header = this->getIndentation(indentation) + this->returnType + " kernel " + this->getName() + this->getArgsStr(OpenCL) + " {" + "\n";
 			const std::string end = "}";
 			return header + this->getBody(indentation + 1, OpenCL) + end;
 		}

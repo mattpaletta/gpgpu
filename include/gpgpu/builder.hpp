@@ -71,7 +71,7 @@ namespace gpgpu {
 #ifdef GPGPU_METAL
         using MetalBuffer = id<MTLBuffer>;
         template<class RetT>
-        MetalBuffer add_parameter_ret_internal(id<MTLComputeCommandEncoder>* commandEncoder, id<MTLDevice>* device, const std::size_t& argIndex, const std::size_t& dataCount) {
+        MetalBuffer metal_add_parameter_ret_internal(id<MTLComputeCommandEncoder>* commandEncoder, id<MTLDevice>* device, const std::size_t& argIndex, const std::size_t& dataCount) {
             MetalBuffer outBuffer = [*device newBufferWithLength:sizeof(RetT) * dataCount options:MTLResourceStorageModeManaged];
             [*commandEncoder setBuffer:outBuffer offset:0 atIndex:argIndex];
             return outBuffer;
@@ -79,7 +79,7 @@ namespace gpgpu {
 
         // Process individual ARG
         template<class RetT, class A0>
-        void add_parameter_arg_internal(id<MTLComputeCommandEncoder>* commandEncoder, id<MTLDevice>* device, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<A0>& data) {
+        void metal_add_parameter_arg_internal(id<MTLComputeCommandEncoder>* commandEncoder, id<MTLDevice>* device, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<A0>& data) {
             auto inBuffer = [*device newBufferWithLength:sizeof(A0) * data.size() options:MTLResourceStorageModeManaged];
             auto* inData = static_cast<A0*>(inBuffer.contents);
             for (std::size_t i = 0; i < data.size(); ++i) {
@@ -92,21 +92,21 @@ namespace gpgpu {
 
         // Process the last one.
         template<class RetT, class A0>
-        MetalBuffer add_parameter_internal(id<MTLComputeCommandEncoder>* commandEncoder, id<MTLDevice>* device, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<A0>& data) {
+        MetalBuffer metal_add_parameter_internal(id<MTLComputeCommandEncoder>* commandEncoder, id<MTLDevice>* device, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<A0>& data) {
             // Process the last one
-            this->add_parameter_arg_internal<RetT, A0>(commandEncoder, device, argIndex, retDataCount, data);
-            return this->add_parameter_ret_internal<RetT>(commandEncoder, device, argIndex + 1, retDataCount); // Process the return value
+            this->metal_add_parameter_arg_internal<RetT, A0>(commandEncoder, device, argIndex, retDataCount, data);
+            return this->metal_add_parameter_ret_internal<RetT>(commandEncoder, device, argIndex + 1, retDataCount); // Process the return value
         }
 
         template<class RetT, typename A0, typename... AN>
-        MetalBuffer add_parameter_internal(id<MTLComputeCommandEncoder>* commandEncoder, id<MTLDevice>* device, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<A0>& data, AN... args) {
-            this->add_parameter_arg_internal<RetT, A0>(commandEncoder, device, argIndex, retDataCount, data); // Process A0
-            return this->add_parameter_internal<RetT>(commandEncoder, device, argIndex + 1, retDataCount, args...); // Process the rest ('recursively'), returns the 'return' buffer.
+        MetalBuffer metal_add_parameter_internal(id<MTLComputeCommandEncoder>* commandEncoder, id<MTLDevice>* device, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<A0>& data, AN... args) {
+            this->metal_add_parameter_arg_internal<RetT, A0>(commandEncoder, device, argIndex, retDataCount, data); // Process A0
+            return this->metal_add_parameter_internal<RetT>(commandEncoder, device, argIndex + 1, retDataCount, args...); // Process the rest ('recursively'), returns the 'return' buffer.
         }
 
         template<class RetT, class... AN>
-        MetalBuffer add_parameter(id<MTLComputeCommandEncoder>* commandEncoder, id<MTLDevice>* device, const std::size_t& retDataCount, AN... args) {
-            return this->add_parameter_internal<RetT>(commandEncoder, device, /* argIndex */ 0, retDataCount, args...);
+        MetalBuffer metal_add_parameter(id<MTLComputeCommandEncoder>* commandEncoder, id<MTLDevice>* device, const std::size_t& retDataCount, AN... args) {
+            return this->metal_add_parameter_internal<RetT>(commandEncoder, device, /* argIndex */ 0, retDataCount, args...);
         }
 
         template<class RetT, class A0, class ... AN>
@@ -149,8 +149,49 @@ namespace gpgpu {
 #endif // GPGPU_METAL
 
 #ifdef GPGPU_OPENCL
-        template<class RetT, class A0, class ... AN>
-        void run_opencl(const std::string& func_name, std::vector<RetT>* ret, const std::vector<A0>& data, AN ...args) {
+        using OpenCLBuffer = cl::Buffer;
+        
+        // Process individual ARG
+        template<typename A0>
+        OpenCLBuffer opencl_add_parameter_arg_internal(cl::Kernel* func, cl::Context* context, cl::CommandQueue* queue, const bool should_write, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<A0>& data) {
+            if (should_write) {
+                OpenCLBuffer buffer_N{ *context, CL_MEM_READ_WRITE, sizeof(A0) * retDataCount };
+                func->setArg(argIndex, buffer_N);
+                // queue->enqueueWriteBuffer(buffer_N, CL_TRUE, 0, sizeof(A0) * retDataCount, data.data());
+                return std::move(buffer_N);
+            } else {
+                OpenCLBuffer buffer_N{ *context, CL_MEM_READ_WRITE, sizeof(A0) * retDataCount };
+                func->setArg(argIndex, buffer_N);
+                queue->enqueueWriteBuffer(buffer_N, CL_TRUE, 0, sizeof(A0) * retDataCount, data.data());
+                return std::move(buffer_N);
+            }
+        }
+
+        template<typename RetT>
+        OpenCLBuffer opencl_add_parameter_ret_internal(cl::Kernel* func, cl::Context* context, cl::CommandQueue* queue, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<RetT>& data) {
+            return this->opencl_add_parameter_arg_internal<RetT>(func, context, queue, true /* Write */, argIndex, retDataCount, data);
+        }
+
+        // Process the last one.
+        template<typename A0>
+        OpenCLBuffer opencl_add_parameter_internal(cl::Kernel* func, cl::Context* context, cl::CommandQueue* queue, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<A0>& data) {
+            // Process the last one, which is the return value.
+            return this->opencl_add_parameter_ret_internal<A0>(func, context, queue, argIndex, retDataCount, data); // Process the return value
+        }
+
+        template<typename A0, typename... AN>
+        OpenCLBuffer opencl_add_parameter_internal(cl::Kernel* func, cl::Context* context, cl::CommandQueue* queue, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<A0>& data, const AN&... args) {
+            this->opencl_add_parameter_arg_internal<A0>(func, context, queue, false /* Read only */, argIndex, data.size(), data); // Process A0
+            return this->opencl_add_parameter_internal(func, context, queue, argIndex + 1, retDataCount, args...); // Process the rest ('recursively'), returns the 'return' buffer.
+        }
+
+        template<typename... AN>
+        OpenCLBuffer opencl_add_parameter(cl::Kernel* func, cl::Context* context, cl::CommandQueue* queue, const std::size_t& retDataCount, const AN&... args) {
+            return this->opencl_add_parameter_internal(func, context, queue, /* argIndex */ 0, retDataCount, args...);
+        }
+
+        template<typename RetT, typename A0, typename ... AN>
+        void run_opencl(const std::string& func_name, std::vector<RetT>* ret, const std::vector<A0>& data, const AN& ...args) {
             // Get available platforms
             std::vector<cl::Platform> platforms;
             cl::Platform::get(&platforms);
@@ -182,9 +223,27 @@ namespace gpgpu {
                 std::terminate();
             }
 
-
+            // set up kernels and vectors for GPU code
+            cl::Kernel func(program, func_name.c_str());
+            
+            cl::Buffer buffer_out = opencl_add_parameter(&func, &context, &queue, data.size(), data, args..., *ret);
+            std::cout << "Kernel Size: " << data.size() << ", 32" << std::endl;
+            queue.enqueueNDRangeKernel(func, cl::NullRange, // kernel, offset
+                cl::NDRange(data.size()),                   // global number of work items
+                cl::NDRange(data.size() / 25));                           // local number (per group)
+            
+            ret->resize(data.size());
+            queue.enqueueReadBuffer(buffer_out, CL_TRUE, 0, sizeof(RetT) * data.size(), ret->data());
+            queue.finish();
         }
 #endif // GPGPU_OPENCL
+
+#ifdef GPGPU_CUDA
+        template<typename RetT, typename A0, typename ... AN>
+        void run_cuda(const std::string& func_name, std::vector<RetT>* ret, const std::vector<A0>& data, const AN& ...args) {
+            
+        }
+#endif // GPGPU_CUDA
 
 	public:
 		Builder(const Runtime& _rt) : rt(_rt) {};
@@ -204,22 +263,26 @@ namespace gpgpu {
             return this->funcs.back().get();
 		}
 
-        std::string dump() {
-            switch(rt) {
-                case OpenCL:
-                    return this->build_opencl();
-                case Metal:
-                    return this->build_metal();
-                case CUDA:
-                    return this->build_cuda();
-//                case CPU:
-//                    return this->build_cpu();
+        std::string dump(const Runtime& rt) {
+            switch (rt) {
+            case OpenCL:
+                return this->build_opencl();
+            case Metal:
+                return this->build_metal();
+            case CUDA:
+                return this->build_cuda();
+                //                case CPU:
+                //                    return this->build_cpu();
             }
         }
 
+        std::string dump() {
+            return this->dump(this->rt);
+        }
+
         template<typename RetT, typename... AN>
-        void run(const Runtime& rt, const std::string& func_name, std::vector<RetT>* ret, AN... args) {
-            switch(this->rt) {
+        void run(const Runtime& rt, const std::string& func_name, std::vector<RetT>* ret, const AN&... args) {
+            switch(rt) {
 #ifdef GPGPU_OPENCL
                 case OpenCL:
                     this->run_opencl<RetT>(func_name, ret, args...);
@@ -230,8 +293,11 @@ namespace gpgpu {
                     this->run_metal<RetT>(func_name, ret, args...);
                     break;
 #endif
-                    //                case CUDA:
-                    //                    return this->build_cuda();
+#ifdef GPGPU_CUDA
+                case CUDA:
+                    this->run_cuda<RetT>(func_name, ret, args...);
+                    break;
+#endif
                 default:
                     throw new std::runtime_error("Unsupported backend");
             }
