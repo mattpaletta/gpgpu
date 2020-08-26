@@ -48,12 +48,12 @@ TEST_CASE("build kernel", "[builder]") {
     kernel->addComment({"Do the operation"});
     kernel->addBody(std::move(equals_c));
 
-    std::cout << builder.dump(gpgpu::OpenCL) << std::endl;
+    std::cout << builder.dump(gpgpu::CUDA) << std::endl;
 
     const auto A = range<int>(100);
     const auto B = range<int>(100, 200);
     std::vector<int> C;
-    CHECK_NOTHROW(builder.run(gpgpu::OpenCL, "vector_add", &C, A, B));
+    CHECK_NOTHROW(builder.run(gpgpu::CUDA, "vector_add", &C, A, B));
     for (const auto& i : C) {
         std::cout << i << " ";
     }

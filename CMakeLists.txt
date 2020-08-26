@@ -1,15 +1,15 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.17)
+project(gpugpu LANGUAGES CXX)
 if (APPLE)
-	project(gpugpu LANGUAGES CXX OBJCXX)
-else()
-	project(gpugpu LANGUAGES CXX)
+	enable_language(OBJCXX)
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_STANDARD 14)
+set(CMAKE_CUDA_STANDARD_REQUIRED TRUE)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 include(cmake/fetch_extern.cmake)
-
 
 if (APPLE)
 	# OpenCL Implementation doesn't seem to work on apple, only build metal
@@ -22,6 +22,9 @@ else()
 	find_package(CUDA QUIET)
 	if (CUDA_FOUND)
 		option(GPGPU_USE_CUDA "Enable CUDA support" ON)
+		enable_language(CUDA)
+	else()
+		option(GPGPU_USE_CUDA "Enable CUDA support" OFF)
 	endif()
 endif()
 
@@ -33,24 +36,43 @@ if (${GPGPU_USE_METAL})
 	set_target_properties(addition_cpu PROPERTIES LINKER_LANGUAGE OBJCXX)
 endif()
 
-add_library(gpgpu STATIC ${INC_FILES} ${SRC_FILES})
-target_include_directories(gpgpu PUBLIC include)
+if (${GPGPU_USE_CUDA})
+#	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -rdynamic")
+#	set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdynamic")
 
+	set(CUDA_LINK_LIBRARIES_KEYWORD PUBLIC)
+	find_package(CUDA REQUIRED)
+	cuda_add_library(gpgpu STATIC ${INC_FILES} ${SRC_FILES})
+else()
+	add_library(gpgpu STATIC ${INC_FILES} ${SRC_FILES})
+endif()
+
+target_include_directories(gpgpu PUBLIC include)
 set(GPGPU_DEPS)
 
 if (${GPGPU_USE_CUDA})
-	FIND_PACKAGE(CUDA REQUIRED)
-	find_library(cuda REQUIRED)
-
 	message("Cuda: ${CUDA_LIBRARIES}")
-
+	find_library(nvrtc REQUIRED)
+	find_library(cuda REQUIRED)
 	fetch_extern(jitify https://github.com/NVIDIA/jitify.git b4f05a146121085805ad1cbe64537933756d1a17)
 	add_library(jitify INTERFACE)
 	target_include_directories(jitify INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/_deps/jitify-src)
-	# target_link_libraries(jitify INTERFACE cuda cudart nvrtcc)
+	target_link_libraries(jitify INTERFACE cuda ${CUDA_LIBRARIES} nvrtc)
 
-	list(APPEND GPGPU_DEPS ${CUDA_LIBRARIES} jitify)
+	# If not msvc, add cross-execution-space-call. This is blocked under msvc by a jitify related bug (untested > CUDA 10.1): https://github.com/NVIDIA/jitify/issues/62
+    if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} cross-execution-space-call ")
+    endif()
+
+    # If not msvc, add reorder to Werror. This is blocked under msvc by cub/thrust and the lack of isystem on msvc. Appears unable to suppress the warning via diag_suppress pragmas.
+    if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} reorder ")
+    endif()
+
+	list(APPEND GPGPU_DEPS jitify)
 	target_compile_definitions(gpgpu PUBLIC "-DGPGPU_CUDA")
+	set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DJITIFY_PRINT_ALL")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DJITIFY_PRINT_ALL")
 
 	cuda_add_executable(addition_cuda include/cu/addition_cuda.cu)
 endif()
@@ -85,6 +107,7 @@ if (${GPGPU_USE_METAL})
 	target_compile_definitions(gpgpu PUBLIC "-DGPGPU_METAL")
 endif()
 
+message("GPGPU Libraries: ${GPGPU_DEPS}")
 target_link_libraries(gpgpu PUBLIC ${GPGPU_DEPS})
 if (${GPGPU_USE_METAL})
 	set_target_properties(gpgpu PROPERTIES LINKER_LANGUAGE OBJCXX)
@@ -95,8 +118,15 @@ set(CATCH_VERSION 0f12995501ee01d3d2bdd9f4978bb28b5f670bab)
 if (NOT TARGET Catch2::Catch2)
 	fetch_extern(catch2 https://github.com/catchorg/Catch2 ${CATCH_VERSION})
 endif()
-add_executable(test_gpgpu test/test_gpgpu.cpp)
-target_link_libraries(test_gpgpu gpgpu Catch2::Catch2)
+
+if (${GPGPU_USE_CUDA})
+	add_executable(test_gpgpu test/test_gpgpu.cpp)
+	set_source_files_properties(test/test_gpgpu.cpp PROPERTIES LANGUAGE CUDA)
+else()
+	add_executable(test_gpgpu test/test_gpgpu.cpp)
+endif()
+
+target_link_libraries(test_gpgpu PUBLIC gpgpu Catch2::Catch2)
 if (${GPGPU_USE_METAL})
 	set_target_properties(test_gpgpu PROPERTIES LINKER_LANGUAGE OBJCXX)
 endif()

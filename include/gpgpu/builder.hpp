@@ -22,6 +22,32 @@
 #include <MetalKit/MetalKit.h>
 #endif
 
+#ifdef GPGPU_CUDA
+#ifdef LINUX  // Only supported by gcc on Linux (defined in Makefile)
+// #define JITIFY_ENABLE_EMBEDDED_FILES 1
+#endif
+// #define JITIFY_PRINT_INSTANTIATION 1
+// #define JITIFY_PRINT_SOURCE 1
+// #define JITIFY_PRINT_LOG 1
+// #define JITIFY_PRINT_PTX 1
+// #define JITIFY_PRINT_LINKER_LOG 1
+// #define JITIFY_PRINT_LAUNCH 1
+// #define JITIFY_PRINT_ALL 1
+#include "jitify.hpp"
+
+#define CHECK_CUDA(call)                                                  \
+  do {                                                                    \
+    if (call != CUDA_SUCCESS) {                                           \
+      const char* str;                                                    \
+      cuGetErrorName(call, &str);                                         \
+      std::cout << "(CUDA) returned " << str;                             \
+      std::cout << " (" << __FILE__ << ":" << __LINE__ << ":" << __func__ \
+                << "())" << std::endl;                                    \
+      return false;                                                       \
+    }                                                                     \
+  } while (0)
+#endif
+
 namespace gpgpu {
 	class Builder {
 	private:
@@ -153,41 +179,37 @@ namespace gpgpu {
         
         // Process individual ARG
         template<typename A0>
-        OpenCLBuffer opencl_add_parameter_arg_internal(cl::Kernel* func, cl::Context* context, cl::CommandQueue* queue, const bool should_write, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<A0>& data) {
-            if (should_write) {
-                OpenCLBuffer buffer_N{ *context, CL_MEM_READ_WRITE, sizeof(A0) * retDataCount };
-                func->setArg(argIndex, buffer_N);
-                // queue->enqueueWriteBuffer(buffer_N, CL_TRUE, 0, sizeof(A0) * retDataCount, data.data());
-                return std::move(buffer_N);
-            } else {
-                OpenCLBuffer buffer_N{ *context, CL_MEM_READ_WRITE, sizeof(A0) * retDataCount };
-                func->setArg(argIndex, buffer_N);
-                queue->enqueueWriteBuffer(buffer_N, CL_TRUE, 0, sizeof(A0) * retDataCount, data.data());
-                return std::move(buffer_N);
+        OpenCLBuffer* opencl_add_parameter_arg_internal(std::vector<std::unique_ptr<OpenCLBuffer>>* acc, cl::Kernel* func, cl::Context* context, cl::CommandQueue* queue, const bool should_write, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<A0>& data) {
+            auto buffer_N = std::make_unique<OpenCLBuffer>(*context, CL_MEM_READ_WRITE, sizeof(A0) * retDataCount);
+            func->setArg(argIndex, *buffer_N.get());
+            if (!should_write) {
+                queue->enqueueWriteBuffer(*buffer_N.get(), CL_TRUE, 0, sizeof(A0) * retDataCount, data.data());
             }
+            acc->emplace_back(std::move(buffer_N));
+            return acc->back().get();
         }
 
         template<typename RetT>
-        OpenCLBuffer opencl_add_parameter_ret_internal(cl::Kernel* func, cl::Context* context, cl::CommandQueue* queue, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<RetT>& data) {
-            return this->opencl_add_parameter_arg_internal<RetT>(func, context, queue, true /* Write */, argIndex, retDataCount, data);
+        OpenCLBuffer* opencl_add_parameter_ret_internal(std::vector<std::unique_ptr<OpenCLBuffer>>* acc, cl::Kernel* func, cl::Context* context, cl::CommandQueue* queue, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<RetT>& data) {
+            return this->opencl_add_parameter_arg_internal<RetT>(acc, func, context, queue, true /* Write */, argIndex, retDataCount, data);
         }
 
         // Process the last one.
         template<typename A0>
-        OpenCLBuffer opencl_add_parameter_internal(cl::Kernel* func, cl::Context* context, cl::CommandQueue* queue, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<A0>& data) {
+        OpenCLBuffer* opencl_add_parameter_internal(std::vector<std::unique_ptr<OpenCLBuffer>>* acc, cl::Kernel* func, cl::Context* context, cl::CommandQueue* queue, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<A0>& data) {
             // Process the last one, which is the return value.
-            return this->opencl_add_parameter_ret_internal<A0>(func, context, queue, argIndex, retDataCount, data); // Process the return value
+            return this->opencl_add_parameter_ret_internal<A0>(acc, func, context, queue, argIndex, retDataCount, data); // Process the return value
         }
 
         template<typename A0, typename... AN>
-        OpenCLBuffer opencl_add_parameter_internal(cl::Kernel* func, cl::Context* context, cl::CommandQueue* queue, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<A0>& data, const AN&... args) {
-            this->opencl_add_parameter_arg_internal<A0>(func, context, queue, false /* Read only */, argIndex, data.size(), data); // Process A0
-            return this->opencl_add_parameter_internal(func, context, queue, argIndex + 1, retDataCount, args...); // Process the rest ('recursively'), returns the 'return' buffer.
+        OpenCLBuffer* opencl_add_parameter_internal(std::vector<std::unique_ptr<OpenCLBuffer>>* acc, cl::Kernel* func, cl::Context* context, cl::CommandQueue* queue, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<A0>& data, const AN&... args) {
+            this->opencl_add_parameter_arg_internal<A0>(acc, func, context, queue, false /* Read only */, argIndex, data.size(), data); // Process A0
+            return this->opencl_add_parameter_internal(acc, func, context, queue, argIndex + 1, retDataCount, args...); // Process the rest ('recursively'), returns the 'return' buffer.
         }
 
         template<typename... AN>
-        OpenCLBuffer opencl_add_parameter(cl::Kernel* func, cl::Context* context, cl::CommandQueue* queue, const std::size_t& retDataCount, const AN&... args) {
-            return this->opencl_add_parameter_internal(func, context, queue, /* argIndex */ 0, retDataCount, args...);
+        OpenCLBuffer* opencl_add_parameter(std::vector<std::unique_ptr<OpenCLBuffer>>* acc, cl::Kernel* func, cl::Context* context, cl::CommandQueue* queue, const std::size_t& retDataCount, const AN&... args) {
+            return this->opencl_add_parameter_internal(acc, func, context, queue, /* argIndex */ 0, retDataCount, args...);
         }
 
         template<typename RetT, typename A0, typename ... AN>
@@ -211,7 +233,7 @@ namespace gpgpu {
             cl::CommandQueue queue = cl::CommandQueue(context, devices[0]);
 
             cl::Program::Sources sources;
-            std::string sourceCode = this->build_opencl();
+            const std::string sourceCode = this->build_opencl();
             const auto a = std::make_pair(sourceCode.c_str(), sourceCode.size() + 1);
             cl::Program::Sources source(1, a);
 
@@ -226,22 +248,68 @@ namespace gpgpu {
             // set up kernels and vectors for GPU code
             cl::Kernel func(program, func_name.c_str());
             
-            cl::Buffer buffer_out = opencl_add_parameter(&func, &context, &queue, data.size(), data, args..., *ret);
+            std::vector<std::unique_ptr<OpenCLBuffer>> buffers; // RAII for OpenCL buffers.
+            OpenCLBuffer* buffer_out = opencl_add_parameter(&buffers, &func, &context, &queue, data.size(), data, args..., *ret);
             std::cout << "Kernel Size: " << data.size() << ", 32" << std::endl;
             queue.enqueueNDRangeKernel(func, cl::NullRange, // kernel, offset
                 cl::NDRange(data.size()),                   // global number of work items
                 cl::NDRange(data.size() / 25));                           // local number (per group)
             
             ret->resize(data.size());
-            queue.enqueueReadBuffer(buffer_out, CL_TRUE, 0, sizeof(RetT) * data.size(), ret->data());
+            queue.enqueueReadBuffer(*buffer_out, CL_TRUE, 0, sizeof(RetT) * data.size(), ret->data());
             queue.finish();
         }
 #endif // GPGPU_OPENCL
 
 #ifdef GPGPU_CUDA
+        // Process individual ARG
+        template<typename A0>
+        A0* cuda_add_parameter_arg_internal(const std::size_t& retDataCount, const std::vector<A0>& h_data) {
+            A0* d_data;
+            cudaMalloc((void**) &d_data, sizeof(A0) * retDataCount);
+            cudaMemcpy(d_data, h_data.data(), sizeof(A0) * retDataCount, cudaMemcpyHostToDevice);
+            return std::move(d_data);
+        }
+
+        template<typename A0, typename... AN>
+        std::tuple<A0*, AN*...> cuda_add_parameter_internal(const std::size_t& retDataCount, const std::vector<A0>& data, const std::vector<AN>&... args) {
+            return { this->cuda_add_parameter_arg_internal<A0>(data.size(), data), this->cuda_add_parameter_arg_internal(retDataCount, args...) };
+        }
+
+        template<typename... AN>
+        std::tuple<AN*...> cuda_add_parameter(const std::size_t& retDataCount, const std::vector<AN>&... args) {
+            return this->cuda_add_parameter_internal(retDataCount, args...);
+        }
+
         template<typename RetT, typename A0, typename ... AN>
         void run_cuda(const std::string& func_name, std::vector<RetT>* ret, const std::vector<A0>& data, const AN& ...args) {
-            
+            const std::string sourceCode = this->build_cuda();
+            thread_local static jitify::JitCache kernel_cache;
+            const char* program_source =
+               // "template<int N, typename T>\n"
+                "__global__ void my_kernel(int* data) {\n"
+                "    int data0 = data[0];\n"
+                "    for( int i=0; i<N-1; ++i ) {\n"
+                "        data[0] *= data0;\n"
+                "    }\n"
+                "}\n";
+            jitify::Program program = kernel_cache.program(program_source/*sourceCode.c_str()*/, 0, { "--std=c++14",});
+
+            auto hostData = cuda_add_parameter(data.size(), data, args...);
+
+            //T h_data = 5;
+            //T* d_data;
+            //cudaMalloc((void**)&d_data, sizeof(T));
+            //cudaMemcpy(d_data, &h_data, sizeof(T), cudaMemcpyHostToDevice);
+            dim3 grid(1);
+            dim3 block(1);
+            //using jitify::reflection::type_of;
+            //CHECK_CUDA(program.kernel("my_kernel")
+            //    .instantiate(3, type_of(*d_data))
+            //    .configure(grid, block)
+            //    .launch(d_data));
+            //cudaMemcpy(&h_data, d_data, sizeof(T), cudaMemcpyDeviceToHost);
+            //cudaFree(d_data);
         }
 #endif // GPGPU_CUDA
 

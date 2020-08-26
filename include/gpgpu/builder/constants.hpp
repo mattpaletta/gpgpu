@@ -8,6 +8,10 @@
 #pragma once
 #include <string>
 
-namespace gpgpu::builder::constants {
-    const std::string metal_id_var_name = "id";
+namespace gpgpu {
+    namespace builder {
+        namespace constants {
+            const std::string metal_id_var_name = "id";
+        }
+    }
 }
