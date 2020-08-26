@@ -44,7 +44,7 @@ before_install:
       wget -q https://cmake.org/files/v${CMAKE_MAJOR_VERSION}/cmake-${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}-Linux-x86_64.sh && mkdir /opt/cmake && sh ./cmake-${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}-Linux-x86_64.sh --prefix=/opt/cmake --skip-license && sudo ln -s /opt/cmake/bin/cmake /usr/local/bin/cmake && rm ./cmake-${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}-Linux-x86_64.sh && export PATH=/usr/local/bin:$PATH;
       git clone --depth 1 https://github.com/tmcdonell/travis-scripts.git;
       export CUDA=11.0.3;
-      sudo ./travis-scripts/install-cuda-trusty.sh;
+      sudo bash ./travis-scripts/install-cuda-trusty.sh;
     fi;
   - if [[ $TRAVIS_OS_NAME == "windows" ]]; then
       choco upgrade cmake -y --version=3.17.2;
