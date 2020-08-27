@@ -153,7 +153,7 @@ namespace gpgpu {
             auto commandEncoder = [commandBuffer computeCommandEncoder];
 
             // Parameters
-            MetalBuffer outBuffer = this->add_parameter<RetT>(&commandEncoder, &device, data.size(), data, args...);
+            MetalBuffer outBuffer = this->metal_add_parameter<RetT>(&commandEncoder, &device, data.size(), data, args...);
 
             [commandEncoder setComputePipelineState:computePipelineState];
             [commandEncoder dispatchThreadgroups:MTLSizeMake(1, 1, 1) threadsPerThreadgroup:MTLSizeMake(data.size(), 1, 1)];
@@ -293,7 +293,7 @@ namespace gpgpu {
                 "        data[0] *= data0;\n"
                 "    }\n"
                 "}\n";
-            jitify::Program program = kernel_cache.program(program_source/*sourceCode.c_str()*/, 0, { "--std=c++14",});
+            jitify::Program program = kernel_cache.program(sourceCode.c_str(), 0, { "--std=c++14",});
 
             auto hostData = cuda_add_parameter(data.size(), data, args...);
 
