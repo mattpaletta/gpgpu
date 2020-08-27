@@ -23,6 +23,10 @@ namespace gpgpu {
                 return this->getIndentation(indentation) + "get_global_id(" + this->body->build_opencl(0) + ")";
             }
 
+            std::string build_cuda(const std::size_t& indentation) const override {
+                return this->getIndentation(indentation) + "blockIdx.x * blockDim.x + threadIdx.x";
+            }
+
             std::string build_metal(const std::size_t& indentation) const override {
                 return this->getIndentation(indentation) + constants::metal_id_var_name;
             }

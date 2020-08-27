@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <tuple>
 
 #include "gpgpu/builder/line_comment.hpp"
 #include "gpgpu/builder/function_arg.hpp"
@@ -23,6 +24,10 @@
 #endif
 
 #ifdef GPGPU_CUDA
+#ifdef __WIN32__
+#include "dbghelp.h"
+#endif
+
 #ifdef LINUX  // Only supported by gcc on Linux (defined in Makefile)
 // #define JITIFY_ENABLE_EMBEDDED_FILES 1
 #endif
@@ -35,12 +40,22 @@
 // #define JITIFY_PRINT_ALL 1
 #include "jitify.hpp"
 
-#define CHECK_CUDA(call)                                                  \
+#define CHECK_CUDA(error) \
+    do { \
+        if (error != CUDA_SUCCESS) {    \
+            const char* str;    \
+            cuGetErrorName(error, &str);    \
+            std::cout << "(CUDA) returned " << str; \
+            std::cout << " (" << __FILE__ << ":" << __LINE__ << ":" << __func__ << "())" << std::endl;  \
+            return false;   \
+        }   \
+    } while (0);
+
+#define CHECK_CUDART(call)                                                \
   do {                                                                    \
-    if (call != CUDA_SUCCESS) {                                           \
-      const char* str;                                                    \
-      cuGetErrorName(call, &str);                                         \
-      std::cout << "(CUDA) returned " << str;                             \
+    cudaError_t status = call;                                            \
+    if (status != cudaSuccess) {                                          \
+      std::cout << "(CUDART) returned " << cudaGetErrorString(status);    \
       std::cout << " (" << __FILE__ << ":" << __LINE__ << ":" << __func__ \
                 << "())" << std::endl;                                    \
       return false;                                                       \
@@ -266,9 +281,11 @@ namespace gpgpu {
         template<typename A0>
         A0* cuda_add_parameter_arg_internal(const std::size_t& retDataCount, const std::vector<A0>& h_data) {
             A0* d_data;
-            cudaMalloc((void**) &d_data, sizeof(A0) * retDataCount);
-            cudaMemcpy(d_data, h_data.data(), sizeof(A0) * retDataCount, cudaMemcpyHostToDevice);
-            return std::move(d_data);
+            CHECK_CUDART(cudaMalloc((void**) &d_data, sizeof(A0) * retDataCount));
+            if (h_data.size() > 0) {
+                CHECK_CUDART(cudaMemcpy(d_data, h_data.data(), sizeof(A0) * retDataCount, cudaMemcpyHostToDevice));
+            }
+            return d_data;
         }
 
         template<typename A0, typename... AN>
@@ -281,35 +298,54 @@ namespace gpgpu {
             return this->cuda_add_parameter_internal(retDataCount, args...);
         }
 
+        template<typename A0>
+        bool cuda_free_parameter(A0* deviceData) {
+            CHECK_CUDART(cudaFree(deviceData));
+            return true;
+        }
+
+        template<typename A0, typename... AN>
+        bool cuda_free_parameter(A0* data, AN*... args) {
+            return this->cuda_free_parameter<A0>(data) && this->cuda_free_parameter<AN...>(args...);
+        }
+
+        // Start Call Utility Function
+        template<typename Function, typename Tuple, size_t ... I>
+        auto call(Function f, Tuple t, std::index_sequence<I ...>) { 
+            return f(std::get<I>(t) ...); 
+        }
+        template<typename Function, typename Tuple>
+        auto call(Function f, Tuple t) {
+            static constexpr auto size = std::tuple_size<Tuple>::value;
+            return call(f, t, std::make_index_sequence<size>{});
+        }
+        // End Call Utility Function
+
         template<typename RetT, typename A0, typename ... AN>
-        void run_cuda(const std::string& func_name, std::vector<RetT>* ret, const std::vector<A0>& data, const AN& ...args) {
+        bool run_cuda(const std::string& func_name, std::vector<RetT>* ret, const std::vector<A0>& data, const std::vector<AN>& ...args) {
             const std::string sourceCode = this->build_cuda();
             thread_local static jitify::JitCache kernel_cache;
-            const char* program_source =
-               // "template<int N, typename T>\n"
-                "__global__ void my_kernel(int* data) {\n"
-                "    int data0 = data[0];\n"
-                "    for( int i=0; i<N-1; ++i ) {\n"
-                "        data[0] *= data0;\n"
-                "    }\n"
-                "}\n";
-            jitify::Program program = kernel_cache.program(sourceCode.c_str(), 0, { "--std=c++14",});
+            jitify::Program program = kernel_cache.program(func_name+"\n" + sourceCode, 0, { "-std=c++14",});
+            std::tuple<A0*, AN*...> deviceData = this->cuda_add_parameter(data.size(), data, args...);
+            RetT* returnDeviceData = this->cuda_add_parameter_arg_internal(data.size(), *ret);
 
-            auto hostData = cuda_add_parameter(data.size(), data, args...);
-
-            //T h_data = 5;
-            //T* d_data;
-            //cudaMalloc((void**)&d_data, sizeof(T));
-            //cudaMemcpy(d_data, &h_data, sizeof(T), cudaMemcpyHostToDevice);
-            dim3 grid(1);
-            dim3 block(1);
             //using jitify::reflection::type_of;
-            //CHECK_CUDA(program.kernel("my_kernel")
-            //    .instantiate(3, type_of(*d_data))
-            //    .configure(grid, block)
-            //    .launch(d_data));
-            //cudaMemcpy(&h_data, d_data, sizeof(T), cudaMemcpyDeviceToHost);
-            //cudaFree(d_data);
+            constexpr auto sizeTuple = std::tuple_size<decltype(deviceData)>::value;
+            CHECK_CUDA(this->call([&program, &func_name, &data, returnDeviceData](auto&... args) -> CUresult {
+                dim3 grid(1);
+                dim3 block(data.size());
+                return program.kernel(func_name)
+                    .instantiate()
+                    .configure(grid, block)
+                    .launch(args..., returnDeviceData);
+                }, deviceData));
+
+            // The last item is the return value, copy it to the 'ret' parameter
+            ret->resize(data.size());
+            CHECK_CUDART(cudaMemcpy(ret->data(), returnDeviceData, sizeof(RetT) * data.size(), cudaMemcpyDeviceToHost));
+            return this->call([this](auto... args) -> bool {
+                return this->cuda_free_parameter(args...);
+            }, deviceData) && this->cuda_free_parameter(returnDeviceData);
         }
 #endif // GPGPU_CUDA
 
@@ -350,24 +386,26 @@ namespace gpgpu {
 
         template<typename RetT, typename... AN>
         void run(const Runtime& rt, const std::string& func_name, std::vector<RetT>* ret, const AN&... args) {
-            switch(rt) {
+            switch (rt) {
 #ifdef GPGPU_OPENCL
-                case OpenCL:
-                    this->run_opencl<RetT>(func_name, ret, args...);
-                    break;
+            case OpenCL:
+                this->run_opencl<RetT>(func_name, ret, args...);
+                break;
 #endif
 #ifdef GPGPU_METAL
-                case Metal:
-                    this->run_metal<RetT>(func_name, ret, args...);
-                    break;
+            case Metal:
+                this->run_metal<RetT>(func_name, ret, args...);
+                break;
 #endif
 #ifdef GPGPU_CUDA
-                case CUDA:
-                    this->run_cuda<RetT>(func_name, ret, args...);
-                    break;
+            case CUDA:
+                if (!this->run_cuda<RetT>(func_name, ret, args...)) {
+                    throw new std::runtime_error("CUDA ERROR");
+                }
+                break;
 #endif
-                default:
-                    throw new std::runtime_error("Unsupported backend");
+            default:
+                throw new std::runtime_error("Unsupported backend");
             }
         }
 

@@ -37,8 +37,8 @@ if (${GPGPU_USE_METAL})
 endif()
 
 if (${GPGPU_USE_CUDA})
-#	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -rdynamic")
-#	set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdynamic")
+	#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+	#set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}")
 
 	set(CUDA_LINK_LIBRARIES_KEYWORD PUBLIC)
 	find_package(CUDA REQUIRED)
@@ -54,10 +54,11 @@ if (${GPGPU_USE_CUDA})
 	message("Cuda: ${CUDA_LIBRARIES}")
 	find_library(nvrtc REQUIRED)
 	find_library(cuda REQUIRED)
+	find_library(dbghelp REQUIRED)
 	fetch_extern(jitify https://github.com/NVIDIA/jitify.git b4f05a146121085805ad1cbe64537933756d1a17)
 	add_library(jitify INTERFACE)
 	target_include_directories(jitify INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/_deps/jitify-src)
-	target_link_libraries(jitify INTERFACE cuda ${CUDA_LIBRARIES} nvrtc)
+	target_link_libraries(jitify INTERFACE cuda ${CUDA_LIBRARIES} nvrtc ${CMAKE_DL_LIBS} dbghelp)
 
 	# If not msvc, add cross-execution-space-call. This is blocked under msvc by a jitify related bug (untested > CUDA 10.1): https://github.com/NVIDIA/jitify/issues/62
     if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")

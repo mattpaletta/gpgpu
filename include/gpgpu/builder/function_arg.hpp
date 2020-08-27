@@ -57,20 +57,24 @@ namespace gpgpu {
                 }
             }
 
+            std::string constStr() const {
+                return this->is_const ? "const " : "";
+            }
+
         public:
             FunctionArg(const ARG_TYPE& _location, const std::string& _type, const std::string& _name, const bool _is_const) : BaseBuilder(), location(_location), type(_type), is_const(_is_const), name(_name), val() {}
             ~FunctionArg() = default;
 
             std::string build_opencl(const std::size_t& indentation, const std::size_t& i) const {
-                return this->getIndentation(0) + this->opencl_location_to_string() + " " + (this->is_const ? "const " : "") + this->type + " " + name + (this->val ? " = " + this->val->build_opencl(0) : "");
+                return this->getIndentation(0) + this->opencl_location_to_string() + " " + this->constStr() + this->type + " " + name + (this->val ? " = " + this->val->build_opencl(0) : "");
             }
 
             std::string build_metal(const std::size_t& indentation, const std::size_t& i) const {
-                return this->getIndentation(0) + (this->is_const ? "const " : "") + this->metal_location_to_string() + " " + this->type + " " + name + +"[[ buffer(" + std::to_string(i) + ") ]]" + (this->val ? " = " + this->val->build_metal(0) : "");
+                return this->getIndentation(0) + this->constStr() + this->metal_location_to_string() + " " + this->type + " " + name + +"[[ buffer(" + std::to_string(i) + ") ]]" + (this->val ? " = " + this->val->build_metal(0) : "");
             }
 
             std::string build_cuda(const std::size_t& indentation, const std::size_t& i) const {
-                return this->getIndentation(0) + this->cuda_location_to_string() + " " + this->type + " " + name + (this->val ? " = " + this->val->build_cuda(0) : "");
+                return this->getIndentation(0) + /*this->constStr() + */ this->type + " " + name + (this->val ? " = " + this->val->build_cuda(0) : "");
             }
 
             std::string build_cpu(const std::size_t& indentation, const std::size_t& i) const { return ""; }
