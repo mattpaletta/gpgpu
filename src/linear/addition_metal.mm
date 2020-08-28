@@ -1,3 +1,7 @@
+// This is experimental and not properly integrated into the rest of the project
+// Future plans to use CUBLAS, Eigen, and Metal Performance Shaders in a cross-platform GPU BLAS Library.
+// Create an issue if you'd like to contribute.
+
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #import <MetalPerformanceShaders/MetalPerformanceShaders.h>
