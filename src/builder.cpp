@@ -46,6 +46,53 @@ builder::Kernel* Builder::NewKernel(const std::string& name, std::vector<std::un
     return this->funcs.back().get();
 }
 
+bool Builder::hasMetalDevice() const {
+#ifdef GPGPU_METAL
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool Builder::hasOpenCLDevice() const {
+#ifdef GPGPU_OPENCL
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool Builder::hasCudaDevice() const {
+#ifdef GPGPU_CUDA
+    int count;
+    auto result = cudaGetDeviceCount(&count);
+    if (result == cudaSuccess) {
+        return count > 0;
+    } else {
+        return false;
+    }
+#else
+    return false;
+#endif
+}
+
+bool Builder::hasDevice() const {
+    return this->hasDevice(this->rt);
+}
+
+bool Builder::hasDevice(const Runtime& rt) const {
+    switch (rt) {
+    case CUDA:
+        return this->hasCudaDevice();
+    case OpenCL:
+        return this->hasOpenCLDevice();
+    case Metal:
+        return this->hasMetalDevice();
+    default:
+        return false;
+    }
+}
+
 std::string Builder::dump(const Runtime& rt) {
     switch (rt) {
     case OpenCL:

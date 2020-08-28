@@ -288,6 +288,9 @@ namespace gpgpu {
         }
 #endif // GPGPU_CUDA
 
+        bool hasMetalDevice() const;
+        bool hasOpenCLDevice() const;
+        bool hasCudaDevice() const;
 	public:
         Builder(const Runtime& _rt);
         ~Builder();
@@ -297,6 +300,9 @@ namespace gpgpu {
 
         std::string dump(const Runtime& rt);
         std::string dump();
+
+        bool hasDevice(const Runtime& rt) const;
+        bool hasDevice() const;
 
         template<typename RetT, typename... AN>
         void run(const Runtime& rt, const std::string& func_name, std::vector<RetT>* ret, const AN&... args) {

@@ -48,13 +48,16 @@ TEST_CASE("build kernel", "[builder]") {
     kernel->addComment({"Do the operation"});
     kernel->addBody(std::move(equals_c));
 
-    std::cout << builder.dump() << std::endl;
+    if (builder.hasDevice()) {
+        const auto A = range<int>(100);
+        const auto B = range<int>(100, 200);
+        std::vector<int> C;
 
-    const auto A = range<int>(100);
-    const auto B = range<int>(100, 200);
-    std::vector<int> C;
-    CHECK_NOTHROW(builder.run("vector_add", &C, A, B));
-    for (const auto& i : C) {
-        std::cout << i << " ";
+        CHECK_NOTHROW(builder.run("vector_add", &C, A, B));
+        for (const auto& i : C) {
+            std::cout << i << " ";
+        }
+    } else {
+        CHECK_NOTHROW(builder.dump());
     }
 }

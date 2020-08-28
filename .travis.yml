@@ -59,7 +59,7 @@ before_install:
         echo "Adding CUDA to CUDA_PATH, PATH and LD_LIBRARY_PATH";
         export CUDA_PATH=${CUDA_PATH};
         export PATH=${CUDA_PATH}/bin:${PATH};
-        LD_LIBRARY_PATH=${CUDA_PATH}/lib:${LD_LIBRARY_PATH};
+        LD_LIBRARY_PATH=${CUDA_PATH}/lib:${CUDA_PATH}/lib64:${LD_LIBRARY_PATH};
       fi;
     fi;
   - if [[ $TRAVIS_OS_NAME == "windows" ]]; then
@@ -72,7 +72,7 @@ script:
   - cd build
   - cmake -DCMAKE_BUILD_TYPE=${BUILD} -DGPGPU_USE_CUDA=${USE_CUDA} -DGPGPU_USE_OPENCL=${USE_OPENCL} -DGPGPU_USE_METAL=${USE_METAL} ..
   - cmake --build .
-    # Don't run the tests, just build it
+  - ./test_gpgpu
 
 notifications:
   email:
