@@ -29,24 +29,32 @@ namespace gpgpu {
             Kernel(const std::string& _name, std::vector<std::unique_ptr<FunctionArg>>&& _args, const std::string& _returnType);
             ~Kernel() = default;
 
-            void addArg(std::unique_ptr<FunctionArg>&& arg, const std::size_t& i) {
-                this->args.emplace(this->args.begin() + i, std::move(arg));
+            template<typename... Args>
+            void addArg(const std::size_t& i, Args... args) {
+                this->args.emplace(this->args.begin() + i, std::make_unique<FunctionArg>(args...));
             }
 
-            void addArg(std::unique_ptr<FunctionArg>&& arg) {
-                this->args.emplace_back(std::move(arg));
+            template<typename... Args>
+            void addArg(Args... args) {
+                this->args.emplace_back(std::make_unique<FunctionArg>(args...));
             }
 
-            void addComment(LineComment&& comment) {
-                this->body.emplace_back(std::make_unique<LineComment>(comment));
+            template<typename... Args>
+            void addComment(Args... args) {
+                this->body.emplace_back(std::make_unique<LineComment>(args...));
             }
 
-            void addGlobalThread(std::unique_ptr<GlobalThread>&& gthread) {
-                this->body.emplace_back(std::move(gthread));
+            template<typename... Args>
+            void addGlobalThread(Args... args) {
+                this->body.emplace_back(std::make_unique<GlobalThread>(args...));
+            }
+
+            std::unique_ptr<GlobalThread> getGlobalThread(int gthread) const {
+                return std::make_unique<GlobalThread>(std::make_unique<IntegerConstant>(gthread));
             }
 
             void addGlobalThread(int gthread) {
-                this->addGlobalThread(std::move(std::make_unique<GlobalThread>(std::make_unique<IntegerConstant>(gthread))));
+                this->body.emplace_back(this->getGlobalThread(gthread));
             }
 
             void addVariable(const std::string& type, const std::string& name, std::unique_ptr<BaseBuilder>&& val) {

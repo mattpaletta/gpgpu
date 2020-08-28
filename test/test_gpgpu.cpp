@@ -29,14 +29,15 @@ std::vector<T> range(const std::size_t& end) { return range<T>(0, end); }
 TEST_CASE("build kernel", "[builder]") {
 	gpgpu::Builder builder = gpgpu::Kernel::GetBuilderFor(gpgpu::Runtime::CUDA);
 	auto* kernel = builder.NewKernel("vector_add", {}, "void");
-	kernel->addArg(std::make_unique<gpgpu::builder::FunctionArg>(gpgpu::builder::ARG_TYPE::GLOBAL, "int*", "A", true));
-	kernel->addArg(std::make_unique<gpgpu::builder::FunctionArg>(gpgpu::builder::ARG_TYPE::GLOBAL, "int*", "B", true));
-	kernel->addArg(std::make_unique<gpgpu::builder::FunctionArg>(gpgpu::builder::ARG_TYPE::GLOBAL, "int*", "C", false));
 
-	kernel->addComment({"These comments must be closed because they will be appended to one line"});
+	kernel->addArg(gpgpu::builder::ARG_TYPE::GLOBAL, "int*", "A", true);
+	kernel->addArg(gpgpu::builder::ARG_TYPE::GLOBAL, "int*", "B", true);
+	kernel->addArg(gpgpu::builder::ARG_TYPE::GLOBAL, "int*", "C", false);
 
-    kernel->addComment({"Get the index of the current element to be processed"});
-    kernel->addVariable("int", "i", std::make_unique<gpgpu::builder::GlobalThread>(std::make_unique<gpgpu::builder::IntegerConstant>(0)));
+	kernel->addComment("These comments must be closed because they will be appended to one line");
+
+    kernel->addComment("Get the index of the current element to be processed");
+    kernel->addVariable("int", "i", std::move(kernel->getGlobalThread(0)));
 
     auto a_i = std::make_unique<gpgpu::builder::ArrayElement>(std::make_unique<gpgpu::builder::VariableReference>("A"), std::make_unique<gpgpu::builder::VariableReference>("i")); // A[i];
     auto b_i = std::make_unique<gpgpu::builder::ArrayElement>(std::make_unique<gpgpu::builder::VariableReference>("B"), std::make_unique<gpgpu::builder::VariableReference>("i")); // B[i];
@@ -45,7 +46,7 @@ TEST_CASE("build kernel", "[builder]") {
     auto a_plus_b = std::make_unique<gpgpu::builder::AdditionOperator>(std::move(a_i), std::move(b_i));
     auto equals_c = std::make_unique<gpgpu::builder::EqualsOperator>(std::move(c_i), std::move(a_plus_b));
 
-    kernel->addComment({"Do the operation"});
+    kernel->addComment("Do the operation");
     kernel->addBody(std::move(equals_c));
 
     if (builder.hasDevice()) {
