@@ -6,7 +6,7 @@
 //
 
 #pragma once
-
+#include <memory>
 #include "base_builder.hpp"
 
 namespace gpgpu {
@@ -23,64 +23,19 @@ namespace gpgpu {
 
             std::unique_ptr<BaseBuilder> val;
 
-            std::string opencl_location_to_string() const {
-                switch (this->location) {
-                case GLOBAL:
-                    return "global";
-                case DEVICE:
-                    return "device";
-                case HOST:
-                    return "host";
-                }
-                return "";
-            }
+            std::string opencl_location_to_string() const;
+            std::string metal_location_to_string() const;
+            std::string cuda_location_to_string() const;
 
-            std::string metal_location_to_string() const {
-                switch (this->location) {
-                case GLOBAL:
-                    // Metal copies to the device
-                    return "device";
-                case DEVICE:
-                    return "device";
-                case HOST:
-                    return "host";
-                }
-                return "";
-            }
-
-            std::string cuda_location_to_string() const {
-                switch (this->location) {
-                case GLOBAL:
-                    return "__global__";
-                case DEVICE:
-                    return "__device__";
-                case HOST:
-                    return "__host__";
-                }
-                return "";
-            }
-
-            std::string constStr() const {
-                return this->is_const ? "const " : "";
-            }
-
+            std::string constStr() const;
         public:
-            FunctionArg(const ARG_TYPE& _location, const std::string& _type, const std::string& _name, const bool _is_const) : BaseBuilder(), location(_location), type(_type), is_const(_is_const), name(_name), val() {}
+            FunctionArg(const ARG_TYPE& _location, const std::string& _type, const std::string& _name, const bool _is_const);
             ~FunctionArg() = default;
 
-            std::string build_opencl(const std::size_t& indentation, const std::size_t& i) const {
-                return this->getIndentation(0) + this->opencl_location_to_string() + " " + this->constStr() + this->type + " " + name + (this->val ? " = " + this->val->build_opencl(0) : "");
-            }
-
-            std::string build_metal(const std::size_t& indentation, const std::size_t& i) const {
-                return this->getIndentation(0) + this->constStr() + this->metal_location_to_string() + " " + this->type + " " + name + +"[[ buffer(" + std::to_string(i) + ") ]]" + (this->val ? " = " + this->val->build_metal(0) : "");
-            }
-
-            std::string build_cuda(const std::size_t& indentation, const std::size_t& i) const {
-                return this->getIndentation(0) + /*this->constStr() + */ this->type + " " + name + (this->val ? " = " + this->val->build_cuda(0) : "");
-            }
-
-            std::string build_cpu(const std::size_t& indentation, const std::size_t& i) const { return ""; }
+            std::string build_opencl_arg(const std::size_t& indentation, const std::size_t& i) const;
+            std::string build_metal_arg(const std::size_t& indentation, const std::size_t& i) const;
+            std::string build_cuda_arg(const std::size_t& indentation, const std::size_t& i) const;
+            std::string build_cpu_arg(const std::size_t& indentation, const std::size_t& i) const;
         };
     }
 }

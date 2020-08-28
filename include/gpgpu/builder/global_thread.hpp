@@ -6,30 +6,20 @@
 //
 
 #pragma once
-
+#include <memory>
 #include "base_builder.hpp"
-#include "kernel.hpp"
-#include "constants.hpp"
 
 namespace gpgpu {
     namespace builder {
         class GlobalThread : public BaseBuilder {
             std::unique_ptr<BaseBuilder> body;
         public:
-            GlobalThread(std::unique_ptr<BaseBuilder>&& _body) : BaseBuilder(), body(std::move(_body)) {}
+            GlobalThread(std::unique_ptr<BaseBuilder>&& _body);
             ~GlobalThread() = default;
 
-            std::string build_opencl(const std::size_t& indentation) const override {
-                return this->getIndentation(indentation) + "get_global_id(" + this->body->build_opencl(0) + ")";
-            }
-
-            std::string build_cuda(const std::size_t& indentation) const override {
-                return this->getIndentation(indentation) + "blockIdx.x * blockDim.x + threadIdx.x";
-            }
-
-            std::string build_metal(const std::size_t& indentation) const override {
-                return this->getIndentation(indentation) + constants::metal_id_var_name;
-            }
+            std::string build_opencl(const std::size_t& indentation) const override;
+            std::string build_cuda(const std::size_t& indentation) const override;
+            std::string build_metal(const std::size_t& indentation) const override;
         };
     }
 }

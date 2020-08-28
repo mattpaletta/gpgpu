@@ -1,24 +1,23 @@
 //
-//  variable_reference.hpp
+//  IntegerConstant.hpp
 //  gpgpu
 //
 //  Created by Matthew Paletta on 2020-08-19.
 //
 
 #pragma once
-#include <string>
 #include "base_builder.hpp"
 
 namespace gpgpu {
     namespace builder {
-        class VariableReference : public BaseBuilder {
-            std::string var;
+        class IntegerConstant : public BaseBuilder {
+        private:
+            int val;
 
             std::string build_shared(const std::size_t& indentation) const;
-
         public:
-            VariableReference(const std::string& _var);
-            ~VariableReference() = default;
+            IntegerConstant(const int _val);
+            ~IntegerConstant() = default;
 
             std::string build_opencl(const std::size_t& indentation) const override;
             std::string build_metal(const std::size_t& indentation) const override;

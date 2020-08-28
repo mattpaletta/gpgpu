@@ -27,7 +27,7 @@ template<class T>
 std::vector<T> range(const std::size_t& end) { return range<T>(0, end); }
 
 TEST_CASE("build kernel", "[builder]") {
-	auto builder = gpgpu::Kernel::GetBuilder();
+	gpgpu::Builder builder = gpgpu::Kernel::GetBuilderFor(gpgpu::Runtime::CUDA);
 	auto* kernel = builder.NewKernel("vector_add", {}, "void");
 	kernel->addArg(std::make_unique<gpgpu::builder::FunctionArg>(gpgpu::builder::ARG_TYPE::GLOBAL, "int*", "A", true));
 	kernel->addArg(std::make_unique<gpgpu::builder::FunctionArg>(gpgpu::builder::ARG_TYPE::GLOBAL, "int*", "B", true));

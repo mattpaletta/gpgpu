@@ -5,10 +5,10 @@
 #include <memory>
 #include <tuple>
 
-#include "gpgpu/builder/line_comment.hpp"
-#include "gpgpu/builder/function_arg.hpp"
-#include "gpgpu/builder/kernel.hpp"
-#include "gpgpu/runtime.hpp"
+#include "builder/line_comment.hpp"
+#include "builder/function_arg.hpp"
+#include "builder/kernel.hpp"
+#include "runtime.hpp"
 
 #ifdef GPGPU_OPENCL
 #define __CL_ENABLE_EXCEPTIONS
@@ -17,113 +17,36 @@
 #else
 #include <CL/cl.hpp>
 #endif // __APPLE__
-#endif // GPGPU_METAL
+#endif // GPGPU_OPENCL
 
 #ifdef GPGPU_METAL
 #include <Metal/Metal.h>
 #include <MetalKit/MetalKit.h>
-#endif
+#endif // GPGPU_METAL
 
 #ifdef GPGPU_CUDA
 #ifdef __WIN32__
 #include "dbghelp.h"
 #endif
 
-#ifdef LINUX  // Only supported by gcc on Linux (defined in Makefile)
-// #define JITIFY_ENABLE_EMBEDDED_FILES 1
-#endif
-// #define JITIFY_PRINT_INSTANTIATION 1
-// #define JITIFY_PRINT_SOURCE 1
-// #define JITIFY_PRINT_LOG 1
-// #define JITIFY_PRINT_PTX 1
-// #define JITIFY_PRINT_LINKER_LOG 1
-// #define JITIFY_PRINT_LAUNCH 1
-// #define JITIFY_PRINT_ALL 1
+// Macros defined in CMake
 #include "jitify.hpp"
 
-#define CHECK_CUDA(error) \
-    do { \
-        if (error != CUDA_SUCCESS) {    \
-            const char* str;    \
-            cuGetErrorName(error, &str);    \
-            std::cout << "(CUDA) returned " << str; \
-            std::cout << " (" << __FILE__ << ":" << __LINE__ << ":" << __func__ << "())" << std::endl;  \
-            return false;   \
-        }   \
-    } while (0);
-
-#define CHECK_CUDART(call)                                                \
-  do {                                                                    \
-    cudaError_t status = call;                                            \
-    if (status != cudaSuccess) {                                          \
-      std::cout << "(CUDART) returned " << cudaGetErrorString(status);    \
-      std::cout << " (" << __FILE__ << ":" << __LINE__ << ":" << __func__ \
-                << "())" << std::endl;                                    \
-      return false;                                                       \
-    }                                                                     \
-  } while (0)
-#define CHECK_CUDART_THROW(call)                                                \
-  do {                                                                    \
-    cudaError_t status = call;                                            \
-    if (status != cudaSuccess) {                                          \
-      throw std::runtime_error("(CUDART) returned " + std::string(cudaGetErrorString(status)) + " (" + __FILE__ + ":" + std::to_string(__LINE__) + ":" + std::string(__func__) + "())");                                    \
-    }                                                                     \
-  } while (0)
+// Defines helper functions, only useful if CUDA
+// Must be defined after 'jitify.hpp'
+#define BUILDER_CUDA_SAFE_IMPORT
+#include "builder+cuda.hpp"
 #endif
 
 namespace gpgpu {
 	class Builder {
 	private:
-#ifndef __NVCC__
-		std::vector<std::unique_ptr<builder::Kernel>> funcs;
-#endif
+    	std::vector<std::unique_ptr<builder::Kernel>> funcs;
         const Runtime rt;
 
-        std::string build_opencl() const {
-            const std::string imports = "";
-            std::string final_kernel = imports;
-#ifndef __NVCC__
-            for (const auto& kern : this->funcs) {
-                final_kernel += kern->build_opencl() + "\n\n";
-            }
-#endif
-
-            return final_kernel;
-        }
-
-        std::string build_cuda() const {
-            const std::string imports = "";
-            std::string final_kernel = imports;
-#ifndef __NVCC__
-            for (const auto& kern : this->funcs) {
-                final_kernel += kern->build_cuda() + "\n\n";
-            }
-#endif
-
-            return final_kernel;
-        }
-
-        std::string build_metal() const {
-            const std::string imports = "#include <metal_stdlib>\nusing namespace metal;\n\n";
-            std::string final_kernel = imports;
-#ifndef __NVCC__
-            for (const auto& kern : this->funcs) {
-                final_kernel += kern->build_metal() + "\n\n";
-            }
-#endif
-
-            return final_kernel;
-        }
-
-//        std::string build_cpu() const {
-//            const std::string imports = "";
-//            std::string final_kernel = imports;
-//            for (const auto& kern : this->funcs) {
-//                final_kernel += kern->build_cpu() + "\n\n";
-//            }
-//
-//            return final_kernel;
-//        }
+        std::string build_opencl() const;
+        std::string build_cuda() const;
+        std::string build_metal() const;
 
 #ifdef GPGPU_METAL
         using MetalBuffer = id<MTLBuffer>;
@@ -366,46 +289,14 @@ namespace gpgpu {
 #endif // GPGPU_CUDA
 
 	public:
-        Builder(const Runtime& _rt) : rt(_rt) {};
-		~Builder() = default;
+        Builder(const Runtime& _rt);
+        ~Builder();
 
-		builder::Kernel* GetKernel(const std::string& name) {
-#ifndef __NVCC__
-			for (auto& f : this->funcs) {
-				if (f->getName() == name) {
-                    return f.get();
-				}
-			}
-#endif
-            return nullptr;
-		}
+        builder::Kernel* GetKernel(const std::string& name);
+        builder::Kernel* NewKernel(const std::string& name, std::vector<std::unique_ptr<builder::FunctionArg>>&& args, const std::string& returnType);
 
-		builder::Kernel* NewKernel(const std::string& name, std::vector<std::unique_ptr<builder::FunctionArg>>&& args, const std::string& returnType) {
-#ifndef __NVCC__
-            this->funcs.emplace_back(std::make_unique<builder::Kernel>(name, std::move(args), returnType));
-            return this->funcs.back().get();
-#else
-            return nullptr;
-#endif
-        }
-
-        std::string dump(const Runtime& rt) {
-            switch (rt) {
-            case OpenCL:
-                return this->build_opencl();
-            case Metal:
-                return this->build_metal();
-            case CUDA:
-                return this->build_cuda();
-                //                case CPU:
-                //                    return this->build_cpu();
-            }
-            return "";
-        }
-
-        std::string dump() {
-            return this->dump(this->rt);
-        }
+        std::string dump(const Runtime& rt);
+        std::string dump();
 
         template<typename RetT, typename... AN>
         void run(const Runtime& rt, const std::string& func_name, std::vector<RetT>* ret, const AN&... args) {

@@ -62,7 +62,7 @@ if (${GPGPU_USE_CUDA})
 		set(CUDA_CUDA cuda)
 	else()
 		find_library(CUDA_NVRTC nvrtc PATHS ${CUDA_TOOLKIT_ROOT_DIR}/lib64 REQUIRED)
-		# find_library(CUDA_CUDA cuda PATHS ${CUDA_TOOLKIT_ROOT_DIR}/lib64 QUIET)
+		find_library(CUDA_CUDA cuda PATHS ${CUDA_TOOLKIT_ROOT_DIR}/lib64 REQUIRED)
 	endif()
 	if (WIN32)
 		find_library(dbghelp REQUIRED)
@@ -87,6 +87,16 @@ if (${GPGPU_USE_CUDA})
 
 	list(APPEND GPGPU_DEPS jitify)
 	target_compile_definitions(gpgpu PUBLIC "-DGPGPU_CUDA")
+	#ifdef LINUX  // Only supported by gcc on Linux (defined in Makefile)
+	#define JITIFY_ENABLE_EMBEDDED_FILES 1
+	#endif
+	#define JITIFY_PRINT_INSTANTIATION 1
+	#define JITIFY_PRINT_SOURCE 1
+	#define JITIFY_PRINT_LOG 1
+	#define JITIFY_PRINT_PTX 1
+	#define JITIFY_PRINT_LINKER_LOG 1
+	#define JITIFY_PRINT_LAUNCH 1
+	#define JITIFY_PRINT_ALL 1
 	set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DJITIFY_PRINT_ALL")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DJITIFY_PRINT_ALL")
 
@@ -99,6 +109,7 @@ if (${GPGPU_USE_OPENCL})
 	target_compile_definitions(gpgpu PUBLIC "-DGPGPU_OPENCL")
 
 	add_executable(addition_cl include/cu/addition_cl.cpp)
+	target_link_libraries(addition_cl OpenCL::OpenCL)
 	if (${GPGPU_USE_METAL})
 		set_target_properties(addition_cl PROPERTIES LINKER_LANGUAGE OBJCXX)
 	endif()
@@ -135,7 +146,7 @@ if (NOT TARGET Catch2::Catch2)
 	fetch_extern(catch2 https://github.com/catchorg/Catch2 ${CATCH_VERSION})
 endif()
 
-if (${GPGPU_USE_CUDA})
+if (${GPGPU_USE_CUDA} AND WIN32)
 	cuda_add_executable(test_gpgpu test/test_gpgpu.cpp)
 	set_source_files_properties(test/test_gpgpu.cpp PROPERTIES LANGUAGE CUDA)
 else()
