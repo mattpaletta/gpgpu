@@ -11,15 +11,24 @@ matrix:
       compiler: gcc
       env:
       - BUILD=Debug
+      - USE_CUDA=ON
+      - USE_OPENCL=OFF
+      - USE_METAL=OFF
     - name: "GCC OpenCL Debug (linux)"
       os: linux
       compiler: gcc
       env:
       - BUILD=Debug
+      - USE_CUDA=OFF
+      - USE_OPENCL=ON
+      - USE_METAL=OFF
     - name: "Clang Metal Debug (osx)"
       os: osx
       env:
       - BUILD=Debug
+      - USE_CUDA=OFF
+      - USE_OPENCL=OFF
+      - USE_METAL=ON
       addons:
         homebrew:
           packages:
@@ -60,7 +69,7 @@ before_install:
 script:
   - mkdir build
   - cd build
-  - cmake -DCMAKE_BUILD_TYPE=${BUILD} ..
+  - cmake -DCMAKE_BUILD_TYPE=${BUILD} -DGPGPU_USE_CUDA=${USE_CUDA} -DGPGPU_USE_OPENCL=${USE_OPENCL} -DGPGPU_USE_METAL=${USE_METAL} ..
   - cmake --build .
     # Don't run the tests, just build it
 
