@@ -20,7 +20,6 @@ namespace gpgpu {
                 return out;
             }
         public:
-
             BaseBuilder() = default;
             virtual ~BaseBuilder() = default;
 

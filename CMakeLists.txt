@@ -136,7 +136,7 @@ if (NOT TARGET Catch2::Catch2)
 endif()
 
 if (${GPGPU_USE_CUDA})
-	add_executable(test_gpgpu test/test_gpgpu.cpp)
+	cuda_add_executable(test_gpgpu test/test_gpgpu.cpp)
 	set_source_files_properties(test/test_gpgpu.cpp PROPERTIES LANGUAGE CUDA)
 else()
 	add_executable(test_gpgpu test/test_gpgpu.cpp)

@@ -32,6 +32,7 @@ namespace gpgpu {
                 case HOST:
                     return "host";
                 }
+                return "";
             }
 
             std::string metal_location_to_string() const {
@@ -44,6 +45,7 @@ namespace gpgpu {
                 case HOST:
                     return "host";
                 }
+                return "";
             }
 
             std::string cuda_location_to_string() const {
@@ -55,6 +57,7 @@ namespace gpgpu {
                 case HOST:
                     return "__host__";
                 }
+                return "";
             }
 
             std::string constStr() const {

@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <memory>
 #include <tuple>
 
 #include "gpgpu/builder/line_comment.hpp"
@@ -61,20 +62,31 @@
       return false;                                                       \
     }                                                                     \
   } while (0)
+#define CHECK_CUDART_THROW(call)                                                \
+  do {                                                                    \
+    cudaError_t status = call;                                            \
+    if (status != cudaSuccess) {                                          \
+      throw std::runtime_error("(CUDART) returned " + std::string(cudaGetErrorString(status)) + " (" + __FILE__ + ":" + std::to_string(__LINE__) + ":" + std::string(__func__) + "())");                                    \
+    }                                                                     \
+  } while (0)
 #endif
 
 namespace gpgpu {
 	class Builder {
 	private:
+#ifndef __NVCC__
 		std::vector<std::unique_ptr<builder::Kernel>> funcs;
-		const Runtime rt;
+#endif
+        const Runtime rt;
 
         std::string build_opencl() const {
             const std::string imports = "";
             std::string final_kernel = imports;
+#ifndef __NVCC__
             for (const auto& kern : this->funcs) {
                 final_kernel += kern->build_opencl() + "\n\n";
             }
+#endif
 
             return final_kernel;
         }
@@ -82,9 +94,11 @@ namespace gpgpu {
         std::string build_cuda() const {
             const std::string imports = "";
             std::string final_kernel = imports;
+#ifndef __NVCC__
             for (const auto& kern : this->funcs) {
                 final_kernel += kern->build_cuda() + "\n\n";
             }
+#endif
 
             return final_kernel;
         }
@@ -92,9 +106,11 @@ namespace gpgpu {
         std::string build_metal() const {
             const std::string imports = "#include <metal_stdlib>\nusing namespace metal;\n\n";
             std::string final_kernel = imports;
+#ifndef __NVCC__
             for (const auto& kern : this->funcs) {
                 final_kernel += kern->build_metal() + "\n\n";
             }
+#endif
 
             return final_kernel;
         }
@@ -281,9 +297,9 @@ namespace gpgpu {
         template<typename A0>
         A0* cuda_add_parameter_arg_internal(const std::size_t& retDataCount, const std::vector<A0>& h_data) {
             A0* d_data;
-            CHECK_CUDART(cudaMalloc((void**) &d_data, sizeof(A0) * retDataCount));
+            CHECK_CUDART_THROW(cudaMalloc((void**) &d_data, sizeof(A0) * retDataCount));
             if (h_data.size() > 0) {
-                CHECK_CUDART(cudaMemcpy(d_data, h_data.data(), sizeof(A0) * retDataCount, cudaMemcpyHostToDevice));
+                CHECK_CUDART_THROW(cudaMemcpy(d_data, h_data.data(), sizeof(A0) * retDataCount, cudaMemcpyHostToDevice));
             }
             return d_data;
         }
@@ -330,7 +346,7 @@ namespace gpgpu {
             RetT* returnDeviceData = this->cuda_add_parameter_arg_internal(data.size(), *ret);
 
             //using jitify::reflection::type_of;
-            constexpr auto sizeTuple = std::tuple_size<decltype(deviceData)>::value;
+            // constexpr auto sizeTuple = std::tuple_size<decltype(deviceData)>::value;
             CHECK_CUDA(this->call([&program, &func_name, &data, returnDeviceData](auto&... args) -> CUresult {
                 dim3 grid(1);
                 dim3 block(data.size());
@@ -350,22 +366,28 @@ namespace gpgpu {
 #endif // GPGPU_CUDA
 
 	public:
-		Builder(const Runtime& _rt) : rt(_rt) {};
+        Builder(const Runtime& _rt) : rt(_rt) {};
 		~Builder() = default;
 
 		builder::Kernel* GetKernel(const std::string& name) {
+#ifndef __NVCC__
 			for (auto& f : this->funcs) {
 				if (f->getName() == name) {
                     return f.get();
 				}
 			}
-			return nullptr;
+#endif
+            return nullptr;
 		}
 
 		builder::Kernel* NewKernel(const std::string& name, std::vector<std::unique_ptr<builder::FunctionArg>>&& args, const std::string& returnType) {
-			this->funcs.emplace_back(std::make_unique<builder::Kernel>(name, std::move(args), returnType));
+#ifndef __NVCC__
+            this->funcs.emplace_back(std::make_unique<builder::Kernel>(name, std::move(args), returnType));
             return this->funcs.back().get();
-		}
+#else
+            return nullptr;
+#endif
+        }
 
         std::string dump(const Runtime& rt) {
             switch (rt) {
@@ -378,6 +400,7 @@ namespace gpgpu {
                 //                case CPU:
                 //                    return this->build_cpu();
             }
+            return "";
         }
 
         std::string dump() {

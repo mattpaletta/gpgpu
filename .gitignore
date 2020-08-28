@@ -3,6 +3,7 @@ cmake-build-debug/
 build/
 build_make/
 .vs/*
+CMakeSettings.json
 
 **/*.swp
 **/*.DS_Store
