@@ -54,7 +54,7 @@ before_install:
       wget https://raw.githubusercontent.com/FLAMEGPU/FLAMEGPU2_dev/master/scripts/actions/install_cuda_ubuntu.sh;
       export cuda=11.0;
       source ./install_cuda_ubuntu.sh;
-      apt-get install -y --no-install-suggests --no-install-recommends cuda-${cuda};
+      sudo apt-get install -y --no-install-suggests --no-install-recommends cuda-${cuda};
       if [[ $? -eq 0 ]]; then
         echo "Adding CUDA to CUDA_PATH, PATH and LD_LIBRARY_PATH";
         export CUDA_PATH=${CUDA_PATH};
