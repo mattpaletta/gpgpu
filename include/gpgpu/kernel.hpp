@@ -16,7 +16,6 @@ namespace gpgpu {
 		static bool has_cuda();
 		static bool has_opencl();
 		static bool has_metal();
-		static bool has_cpu();
 
 		static Runtime getPreferredRuntime();
 		static Builder GetBuilder();

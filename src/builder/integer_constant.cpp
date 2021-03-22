@@ -18,7 +18,3 @@ std::string IntegerConstant::build_metal(const std::size_t & indentation) const 
 std::string IntegerConstant::build_cuda(const std::size_t & indentation) const { 
     return this->build_shared(indentation); 
 }
-
-std::string IntegerConstant::build_cpu(const std::size_t & indentation) const { 
-    return ""; 
-}

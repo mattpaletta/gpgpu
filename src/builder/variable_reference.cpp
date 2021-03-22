@@ -19,7 +19,3 @@ std::string VariableReference::build_metal(const std::size_t& indentation) const
 std::string VariableReference::build_cuda(const std::size_t& indentation) const {
     return this->build_shared(indentation); 
 }
-
-std::string VariableReference::build_cpu(const std::size_t& indentation) const {
-    return ""; 
-}

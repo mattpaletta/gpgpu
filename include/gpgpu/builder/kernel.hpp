@@ -1,7 +1,4 @@
 #pragma once
-#include <string>
-#include <vector>
-#include <memory>
 
 #include "line_comment.hpp"
 #include "global_thread.hpp"
@@ -11,65 +8,55 @@
 #include "function_arg.hpp"
 #include "../runtime.hpp"
 
-namespace gpgpu {
-    namespace builder {
-        class Kernel : public BaseBuilder {
-        public:
-        private:
-            std::string name;
-            std::vector<std::unique_ptr<FunctionArg>> args;
-            std::string returnType;
+#include <string>
+#include <vector>
+#include <memory>
 
-            std::vector<std::unique_ptr<BaseBuilder>> body;
+namespace gpgpu::builder {
+	class Kernel : public BaseBuilder {
+	public:
+		Kernel(const std::string& _name, std::vector<std::unique_ptr<FunctionArg>>&& _args, const std::string& _returnType);
+		~Kernel() = default;
 
-            std::string getArgsStr(const Runtime& rt) const;
-            std::string getBody(const std::size_t& indentation, const Runtime& rt) const;
-        public:
+		template<typename... Args>
+		void addArg(const std::size_t& i, Args... args) {
+			this->args.emplace(this->args.begin() + i, std::make_unique<FunctionArg>(args...));
+		}
 
-            Kernel(const std::string& _name, std::vector<std::unique_ptr<FunctionArg>>&& _args, const std::string& _returnType);
-            ~Kernel() = default;
+		template<typename... Args>
+		void addArg(Args... args) {
+			this->args.emplace_back(std::make_unique<FunctionArg>(args...));
+		}
 
-            template<typename... Args>
-            void addArg(const std::size_t& i, Args... args) {
-                this->args.emplace(this->args.begin() + i, std::make_unique<FunctionArg>(args...));
-            }
+		template<typename... Args>
+		void addComment(Args... args) {
+			this->body.emplace_back(std::make_unique<LineComment>(args...));
+		}
 
-            template<typename... Args>
-            void addArg(Args... args) {
-                this->args.emplace_back(std::make_unique<FunctionArg>(args...));
-            }
+		template<typename... Args>
+		void addGlobalThread(Args... args) {
+			this->body.emplace_back(std::make_unique<GlobalThread>(args...));
+		}
 
-            template<typename... Args>
-            void addComment(Args... args) {
-                this->body.emplace_back(std::make_unique<LineComment>(args...));
-            }
+		std::unique_ptr<GlobalThread> getGlobalThread(int gthread) const;
 
-            template<typename... Args>
-            void addGlobalThread(Args... args) {
-                this->body.emplace_back(std::make_unique<GlobalThread>(args...));
-            }
+		void addGlobalThread(int gthread);
+		void addVariable(const std::string& type, const std::string& name, std::unique_ptr<BaseBuilder>&& val);
+		void addBody(std::unique_ptr<BaseBuilder>&& element);
 
-            std::unique_ptr<GlobalThread> getGlobalThread(int gthread) const {
-                return std::make_unique<GlobalThread>(std::make_unique<IntegerConstant>(gthread));
-            }
+		std::string getName() const;
 
-            void addGlobalThread(int gthread) {
-                this->body.emplace_back(this->getGlobalThread(gthread));
-            }
+		virtual std::string build_opencl(const std::size_t& indentation = 0) const override;
+		virtual std::string build_cuda(const std::size_t& indentation = 0) const override;
+		virtual std::string build_metal(const std::size_t& indentation = 0) const override;
+	private:
+		std::string name;
+		std::vector<std::unique_ptr<FunctionArg>> args;
+		std::string returnType;
 
-            void addVariable(const std::string& type, const std::string& name, std::unique_ptr<BaseBuilder>&& val) {
-                this->body.emplace_back(std::make_unique<VariableDeclare>(type, name, std::move(val)));
-            }
+		std::vector<std::unique_ptr<BaseBuilder>> body;
 
-            void addBody(std::unique_ptr<BaseBuilder>&& element) {
-                this->body.emplace_back(std::move(element));
-            }
-
-            std::string getName() const;
-
-            virtual std::string build_opencl(const std::size_t& indentation = 0) const override;
-            virtual std::string build_cuda(const std::size_t& indentation = 0) const override;
-            virtual std::string build_metal(const std::size_t& indentation = 0) const override;
-        };
-    }
+		std::string getArgsStr(const Runtime& rt) const;
+		std::string getBody(const std::size_t& indentation, const Runtime& rt) const;
+	};
 }

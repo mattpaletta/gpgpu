@@ -15,7 +15,3 @@ std::string VariableDeclare::build_metal(const std::size_t & indentation) const 
 std::string VariableDeclare::build_cuda(const std::size_t & indentation) const {
     return this->getIndentation(indentation) + type + " " + name + (this->val ? " = " + this->val->build_cuda(0) : "");
 }
-
-std::string VariableDeclare::build_cpu(const std::size_t & indentation) const {
-    return ""; 
-}

@@ -9,7 +9,7 @@
 #include <gpgpu/builder/addition_operator.hpp>
 
 TEST_CASE("test_runtime", "[kernel]") {
-	CHECK((gpgpu::Kernel::has_cuda() || gpgpu::Kernel::has_opencl() || gpgpu::Kernel::has_metal() || gpgpu::Kernel::has_cpu()));
+	CHECK((gpgpu::Kernel::has_cuda() || gpgpu::Kernel::has_opencl() || gpgpu::Kernel::has_metal()));
 }
 template<class T>
 std::vector<T> range(const std::size_t& start, const std::size_t& end, const std::size_t& step) {

@@ -1,4 +1,5 @@
 #include <gpgpu/kernel.hpp>
+#include <stdexcept>
 
 using namespace gpgpu;
 
@@ -28,10 +29,6 @@ bool Kernel::has_metal() {
 #endif
 }
 
-bool Kernel::has_cpu() {
-	return true;
-}
-
 Runtime Kernel::getPreferredRuntime() {
 	if (Kernel::has_metal()) {
 		return Runtime::Metal;
@@ -40,7 +37,7 @@ Runtime Kernel::getPreferredRuntime() {
 	} else if (Kernel::has_opencl()) {
 		return Runtime::OpenCL;
 	} else {
-		return Runtime::CPU;
+		throw std::runtime_error("Unknown runtime");
 	}
 }
 

@@ -14,7 +14,3 @@ std::string EqualsOperator::build_metal(const std::size_t & indentation) const {
 std::string EqualsOperator::build_cuda(const std::size_t & indentation) const {
     return this->getIndentation(indentation) + this->lhs->build_cuda(0) + " = " + this->rhs->build_cuda(0);
 }
-
-std::string EqualsOperator::build_cpu(const std::size_t & indentation) const { 
-    return ""; 
-}

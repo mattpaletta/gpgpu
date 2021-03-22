@@ -22,7 +22,3 @@ std::string LineComment::build_metal(const std::size_t & indentation) const {
 std::string LineComment::build_cuda(const std::size_t & indentation) const {
 	return this->build_shared(indentation); 
 }
-
-std::string LineComment::build_cpu(const std::size_t & indentation) const { 
-	return ""; 
-}

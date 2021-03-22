@@ -6,23 +6,23 @@
 //
 
 #pragma once
-#include <memory>
+
 #include "base_builder.hpp"
 
-namespace gpgpu {
-    namespace builder {
-        class ArrayElement : public BaseBuilder {
-            std::unique_ptr<BaseBuilder> lst; // Likely to be a variable
-            std::unique_ptr<BaseBuilder> element; // Inside the square brackets, could be an expression
+#include <memory>
 
-        public:
-            ArrayElement(std::unique_ptr<BaseBuilder>&& _lst, std::unique_ptr<BaseBuilder>&& _element);
-            ~ArrayElement() = default;
+namespace gpgpu::builder {
+	class ArrayElement : public BaseBuilder {
+	public:
+		ArrayElement(std::unique_ptr<BaseBuilder>&& _lst, std::unique_ptr<BaseBuilder>&& _element);
+		~ArrayElement() = default;
 
-            std::string build_opencl(const std::size_t& indentation) const override;
-            std::string build_metal(const std::size_t& indentation) const override;
-            std::string build_cuda(const std::size_t& indentation) const override;
-            std::string build_cpu(const std::size_t& indentation) const override;
-        };
-    }
+		std::string build_opencl(const std::size_t& indentation) const override;
+		std::string build_metal(const std::size_t& indentation) const override;
+		std::string build_cuda(const std::size_t& indentation) const override;
+	private:
+		std::unique_ptr<BaseBuilder> lst; // Likely to be a variable
+		std::unique_ptr<BaseBuilder> element; // Inside the square brackets, could be an expression
+
+	};
 }

@@ -18,9 +18,6 @@ std::string Kernel::getArgsStr(const Runtime& rt) const {
         case OpenCL:
             argsLine += this->args.at(i)->build_opencl_arg(0, i) + ", ";
             break;
-        case CPU:
-            argsLine += this->args.at(i)->build_cpu_arg(0, i) + ", ";
-            break;
         }
     }
 
@@ -37,9 +34,6 @@ std::string Kernel::getArgsStr(const Runtime& rt) const {
         case OpenCL:
             argsLine += this->args.at(i)->build_opencl_arg(0, i);
             break;
-        case CPU:
-            argsLine += this->args.at(i)->build_cpu_arg(0, i);
-            break;
         }
     }
 
@@ -49,6 +43,18 @@ std::string Kernel::getArgsStr(const Runtime& rt) const {
     }
 
     return "(" + argsLine + ")";
+}
+
+void Kernel::addGlobalThread(int gthread) {
+	this->body.emplace_back(this->getGlobalThread(gthread));
+}
+
+void Kernel::addVariable(const std::string& type, const std::string& name, std::unique_ptr<BaseBuilder>&& val) {
+	this->body.emplace_back(std::make_unique<VariableDeclare>(type, name, std::move(val)));
+}
+
+void Kernel::addBody(std::unique_ptr<BaseBuilder>&& element) {
+	this->body.emplace_back(std::move(element));
 }
 
 std::string Kernel::getBody(const std::size_t& indentation, const Runtime& rt) const {
@@ -66,9 +72,6 @@ std::string Kernel::getBody(const std::size_t& indentation, const Runtime& rt) c
         case OpenCL:
             bodyLine += this->body.at(i)->build_opencl(indentation) + endSemicolon;
             break;
-        case CPU:
-            bodyLine += this->body.at(i)->build_cpu(indentation) + endSemicolon;
-            break;
         }
     }
     return bodyLine;
@@ -76,6 +79,10 @@ std::string Kernel::getBody(const std::size_t& indentation, const Runtime& rt) c
 
 std::string Kernel::getName() const {
     return this->name;
+}
+
+auto Kernel::getGlobalThread(int gthread) const -> std::unique_ptr<GlobalThread> {
+	return std::make_unique<GlobalThread>(std::make_unique<IntegerConstant>(gthread));
 }
 
 std::string Kernel::build_opencl(const std::size_t& indentation) const {

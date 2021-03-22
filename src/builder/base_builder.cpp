@@ -30,7 +30,3 @@ std::string BaseBuilder::build_metal(const std::size_t & indentation) const {
 std::string BaseBuilder::build_cuda(const std::size_t & indentation) const { 
     return ""; 
 }
-
-std::string BaseBuilder::build_cpu(const std::size_t & indentation) const { 
-    return ""; 
-}

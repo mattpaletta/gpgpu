@@ -55,7 +55,3 @@ std::string FunctionArg::build_metal_arg(const std::size_t & indentation, const 
 std::string FunctionArg::build_cuda_arg(const std::size_t & indentation, const std::size_t & i) const {
     return this->getIndentation(0) + /*this->constStr() + */ this->type + " " + name + (this->val ? " = " + this->val->build_cuda(0) : "");
 }
-
-std::string FunctionArg::build_cpu_arg(const std::size_t & indentation, const std::size_t & i) const {
-    return ""; 
-}

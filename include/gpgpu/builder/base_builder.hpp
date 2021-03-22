@@ -6,23 +6,21 @@
 //
 
 #pragma once
+
 #include <string>
 
-namespace gpgpu {
-    namespace builder {
-        class BaseBuilder {
-        protected:
-            std::string getIndentation(const std::size_t& indentation) const;
-        public:
-            BaseBuilder() = default;
-            virtual ~BaseBuilder() = default;
+namespace gpgpu::builder {
+	class BaseBuilder {
+	public:
+		BaseBuilder() = default;
+		virtual ~BaseBuilder() = default;
 
-            virtual bool isComment() const;
+		virtual bool isComment() const;
 
-            virtual std::string build_opencl(const std::size_t& indentation) const;
-            virtual std::string build_metal(const std::size_t& indentation) const;
-            virtual std::string build_cuda(const std::size_t& indentation) const;
-            virtual std::string build_cpu(const std::size_t& indentation) const;
-        };
-    }
+		virtual std::string build_opencl(const std::size_t& indentation) const;
+		virtual std::string build_metal(const std::size_t& indentation) const;
+		virtual std::string build_cuda(const std::size_t& indentation) const;
+	protected:
+		std::string getIndentation(const std::size_t& indentation) const;
+	};
 }
