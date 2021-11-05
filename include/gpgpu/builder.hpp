@@ -49,10 +49,19 @@ namespace gpgpu {
         std::string build_metal() const;
 
 #ifdef GPGPU_METAL
+        MTLResourceOptions GetResourceMode() const {
+#if defined(TARGET_OS_IOS)
+            return MTLResourceStorageModeShared;
+#else
+            return MTLResourceStorageModeManaged;
+#endif
+        }
+
         using MetalBuffer = id<MTLBuffer>;
         template<class RetT>
         MetalBuffer metal_add_parameter_ret_internal(id<MTLComputeCommandEncoder>* commandEncoder, id<MTLDevice>* device, const std::size_t& argIndex, const std::size_t& dataCount) {
-            MetalBuffer outBuffer = [*device newBufferWithLength:sizeof(RetT) * dataCount options:MTLResourceStorageModeManaged];
+            const auto resourceMode = this->GetResourceMode();
+            MetalBuffer outBuffer = [*device newBufferWithLength:sizeof(RetT) * dataCount options:resourceMode];
             [*commandEncoder setBuffer:outBuffer offset:0 atIndex:argIndex];
             return outBuffer;
         }
@@ -60,7 +69,8 @@ namespace gpgpu {
         // Process individual ARG
         template<class RetT, class A0>
         void metal_add_parameter_arg_internal(id<MTLComputeCommandEncoder>* commandEncoder, id<MTLDevice>* device, const std::size_t& argIndex, const std::size_t& retDataCount, const std::vector<A0>& data) {
-            auto inBuffer = [*device newBufferWithLength:sizeof(A0) * data.size() options:MTLResourceStorageModeManaged];
+            const auto resourceMode = this->GetResourceMode();
+            auto inBuffer = [*device newBufferWithLength:sizeof(A0) * data.size() options:resourceMode];
             auto* inData = static_cast<A0*>(inBuffer.contents);
             for (std::size_t i = 0; i < data.size(); ++i) {
                 // update input data
@@ -114,7 +124,9 @@ namespace gpgpu {
             [commandEncoder endEncoding];
 
             auto blitCommandEncoder = [commandBuffer blitCommandEncoder];
+#if !defined(TARGET_OS_IOS)
             [blitCommandEncoder synchronizeResource:outBuffer];
+#endif
             [blitCommandEncoder endEncoding];
 
             [commandBuffer commit];
