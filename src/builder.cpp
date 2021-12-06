@@ -42,7 +42,7 @@ builder::Kernel* Builder::GetKernel(const std::string& name) {
 }
 
 builder::Kernel* Builder::NewKernel(const std::string& name, std::vector<std::unique_ptr<builder::FunctionArg>>&& args, const std::string& returnType) {
-    this->funcs.emplace_back(std::move(std::make_unique<builder::Kernel>(name, std::move(args), returnType)));
+    this->funcs.emplace_back(std::make_unique<builder::Kernel>(name, std::move(args), returnType));
     return this->funcs.back().get();
 }
 
